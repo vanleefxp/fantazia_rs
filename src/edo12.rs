@@ -1,15 +1,19 @@
 mod arith;
 mod base;
 mod constants;
+mod interval;
 mod parsing;
 mod repr;
 
 pub use base::{Acci, OPitch, Step};
+pub use interval::{IntervalDeg, IntervalQual, SimpleInterval};
 pub use parsing::opitch;
 
 #[cfg(test)]
 mod test {
     use std::str::FromStr as _;
+
+    use crate::traits::Co5Order;
 
     use super::*;
     #[test]
@@ -42,5 +46,30 @@ mod test {
         println!("{}", opitch!("E") + opitch!("E-"));
         println!("{}", opitch!("E-") + opitch!("E-"));
         println!("{}", opitch!("E") + opitch!("E"));
+    }
+    #[test]
+    fn test_interval() {
+        let interval: SimpleInterval = (opitch!("D-") - opitch!("E")).into();
+        println!("{}", interval);
+    }
+    #[test]
+    fn test_from_co5_order() {
+        let n_range = -14..=14;
+        n_range.for_each(|n| {
+            let p = OPitch::from_co5_order(n);
+            println!("{} {}", n, p);
+            assert_eq!(p.co5_order(), n);
+        });
+    }
+    #[test]
+    fn test_interval_parsing() {
+        let valid_intervals = ["P1", "m2", "M2", "m3", "M3", "P4", "A4", "d5", "P5", "m6", "M6", "m7", "M7"];
+        let invalid_intervals = ["M1", "m1", "P2", "P3", "M4", "m4", "M5", "m5", "P6", "P7"];
+        for s in valid_intervals {
+            assert!(dbg!(s.parse::<SimpleInterval>()).is_ok())
+        }
+        for s in invalid_intervals {
+            assert!(dbg!(s.parse::<SimpleInterval>()).is_err())
+        }
     }
 }

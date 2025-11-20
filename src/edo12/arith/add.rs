@@ -1,18 +1,27 @@
-use std::ops::{Add, AddAssign};
+use std::{iter::Sum, ops::Add};
 
-use super::super::{OPitch, Step};
-use crate::impl_sum_bisect;
+use malachite_base::num::{arithmetic::traits::ModAdd, basic::traits::Zero as _};
+
+use super::super::{IntervalDeg, OPitch, SimpleInterval, Step};
+use crate::{impl_add_assign_by_add, impl_add_by_conversion, impl_sum_bisect};
 
 impl Add for Step {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        ((self as u8 + rhs as u8) % 7).try_into().unwrap()
+        ((self as u8).mod_add(rhs as u8, 7)).try_into().unwrap()
+    }
+}
+
+impl Add for IntervalDeg {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        ((self as u8).mod_add(rhs as u8, 7)).try_into().unwrap()
     }
 }
 
 #[inline]
-fn get_added_step_and_tone(p1: &OPitch, p2: &OPitch) -> (Step, i8) {
+fn opitch_add(p1: OPitch, p2: OPitch) -> OPitch {
     let mut step = p1.step as u8 + p2.step as u8;
     let mut tone = p1.tone + p2.tone;
     if step > 7 {
@@ -20,59 +29,24 @@ fn get_added_step_and_tone(p1: &OPitch, p2: &OPitch) -> (Step, i8) {
         step -= 7;
     }
     let step = step.try_into().unwrap();
-    (step, tone)
+    OPitch { step, tone }
 }
 
 impl Add for OPitch {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        let (step, tone) = get_added_step_and_tone(&self, &rhs);
-        OPitch { step, tone }
+        opitch_add(self, rhs)
     }
 }
 
-impl Add<&Self> for OPitch {
-    type Output = Self;
+impl_add_by_conversion!(SimpleInterval, OPitch);
 
-    fn add(self, rhs: &Self) -> Self::Output {
-        let (step, tone) = get_added_step_and_tone(&self, rhs);
-        OPitch { step, tone }
+impl Sum for SimpleInterval {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.map(OPitch::from).sum::<OPitch>().into()
     }
 }
 
-impl Add<OPitch> for &OPitch {
-    type Output = OPitch;
-
-    fn add(self, rhs: OPitch) -> Self::Output {
-        let (step, tone) = get_added_step_and_tone(self, &rhs);
-        OPitch { step, tone }
-    }
-}
-
-impl Add for &OPitch {
-    type Output = OPitch;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        let (step, tone) = get_added_step_and_tone(self, rhs);
-        OPitch { step, tone }
-    }
-}
-
-impl AddAssign for OPitch {
-    fn add_assign(&mut self, rhs: Self) {
-        let (step, tone) = get_added_step_and_tone(self, &rhs);
-        self.step = step;
-        self.tone = tone;
-    }
-}
-
-impl AddAssign<&Self> for OPitch {
-    fn add_assign(&mut self, rhs: &Self) {
-        let (step, tone) = get_added_step_and_tone(self, rhs);
-        self.step = step;
-        self.tone = tone;
-    }
-}
-
-impl_sum_bisect!(OPitch, OPitch::C);
+impl_add_assign_by_add!(OPitch, SimpleInterval);
+impl_sum_bisect!(OPitch, OPitch::ZERO);

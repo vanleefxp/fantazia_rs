@@ -4,16 +4,18 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-anyhow = "1.0.100"
 derive_more = { version = "2.0.1", features = [
     "add",
     "add_assign",
     "from",
     "into",
     "not",
+    "sum",
 ] }
+anyhow = "1.0.100"
 itertools = "0.14.0"
 malachite-base = "0.7.1"
 num_enum = "0.7.5"
 phf = { version = "0.13.1", features = ["macros", "uncased"] }
 uncased = "0.9.10"
+# fantazia-proc-macro = { path = "./crates/fantazia-proc-marco" }

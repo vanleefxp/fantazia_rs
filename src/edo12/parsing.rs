@@ -5,6 +5,7 @@ use itertools::Itertools as _;
 use uncased::AsUncased as _;
 
 use super::base::{Acci, OPitch, STEP_NAMES, Step};
+use super::interval::{IntervalDeg, IntervalQual, SimpleInterval};
 
 impl FromStr for Step {
     type Err = anyhow::Error;
@@ -53,18 +54,112 @@ impl FromStr for OPitch {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.is_empty() {
-            bail!("Empty input");
-        } else {
-            let mut chars = s.chars();
-            let step = chars
-                .peeking_take_while(|&ch| ch.is_ascii_alphabetic())
-                .collect::<String>();
-            let step = step.parse::<Step>()?;
-            let acci = chars.as_str();
-            let acci = acci.parse::<Acci>()?;
-            Ok(OPitch::new(step, acci))
+        match s.find(|ch: char| !ch.is_ascii_alphabetic()) {
+            Some(idx) => Ok(OPitch::new((&s[..idx]).parse()?, (&s[idx..]).parse()?)),
+            None => Ok(OPitch::new_diatonic(s.parse()?)),
         }
+    }
+}
+
+impl FromStr for IntervalDeg {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let deg_plus_1: u8 = s.parse()?;
+        let deg = IntervalDeg::try_from(
+            deg_plus_1
+                .checked_sub(1)
+                .ok_or_else(|| anyhow!("0 is not a valid interval degree."))?,
+        )?;
+        Ok(deg)
+    }
+}
+
+impl FromStr for IntervalQual {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use IntervalQual::*;
+        match s {
+            "P" => Ok(Perfect),
+            "M" => Ok(Major),
+            "m" => Ok(Minor),
+            s => {
+                let mut chars = s.chars();
+                match chars.next().ok_or_else(|| anyhow!("Empty input"))? {
+                    '[' => {
+                        if !s.ends_with("]") {
+                            bail!("Unclosed bracket in interval quality string");
+                        }
+                        match chars.next().unwrap() {
+                            'A' => {
+                                if let Some('*') = chars.next() {
+                                    let n: u8 = chars.dropping_back(1).as_str().parse()?;
+                                    Ok(Augmented(n))
+                                } else {
+                                    bail!("Invalid interval quality: {s}");
+                                }
+                            }
+                            'd' => {
+                                if let Some('*') = chars.next() {
+                                    let n: u8 = chars.dropping_back(1).as_str().parse()?;
+                                    Ok(Diminished(n))
+                                } else {
+                                    bail!("Invalid interval quality: {s}");
+                                }
+                            }
+                            _ => bail!("Invalid interval quality: {}", s),
+                        }
+                    }
+                    'A' => {
+                        let mut n = 1;
+                        while let Some('A') = chars.next() {
+                            n += 1;
+                        }
+                        match chars.next() {
+                            None => Ok(Augmented(n)),
+                            _ => bail!("Invalid interval quality: {s}"),
+                        }
+                    }
+                    'd' => {
+                        let mut n = 1;
+                        while let Some('d') = chars.next() {
+                            n += 1;
+                        }
+                        match chars.next() {
+                            None => Ok(Diminished(n)),
+                            _ => bail!("Invalid interval quality: {s}"),
+                        }
+                    }
+                    _ => bail!("Invalid interval quality: {}", s),
+                }
+            }
+        }
+    }
+}
+
+impl FromStr for SimpleInterval {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (qual, deg) = s
+            .char_indices()
+            .rev()
+            .take_while(|&(_, ch)| ch.is_ascii_digit())
+            .last()
+            .map(|(idx, _)| (&s[..idx], &s[idx..]))
+            .ok_or_else(|| anyhow!("Invalid interval format: {s}"))?;
+        let qual: IntervalQual = qual.parse()?;
+        let deg: IntervalDeg = deg.parse()?;
+        use IntervalDeg::*;
+        use IntervalQual::*;
+        match (qual, deg) {
+            (Major | Minor, Unison | Fourth | Fifth) | (Perfect, Second | Third | Sixth | Seventh) => {
+                bail!("{qual}{deg} is not a valid simple interval.")
+            },
+            _ => {},
+        }
+        Ok(SimpleInterval { deg, qual })
     }
 }
 

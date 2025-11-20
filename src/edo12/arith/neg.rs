@@ -2,13 +2,17 @@ use std::ops::Neg;
 
 use malachite_base::num::arithmetic::traits::NegAssign;
 
-use super::super::{Acci, OPitch, Step};
+use super::super::{Acci, OPitch, SimpleInterval, Step};
 
 impl Neg for Step {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
-        (7 - self as u8).try_into().unwrap()
+        use Step::*;
+        match self {
+            C => self,
+            step => (7 - step as u8).try_into().unwrap(),
+        }
     }
 }
 
@@ -19,23 +23,44 @@ impl NegAssign for Acci {
 }
 
 #[inline]
-fn get_negated_step_and_tone(p: &OPitch) -> (Step, i8) {
-    (-p.step, 12 - p.tone)
+fn opitch_neg(p: OPitch) -> OPitch {
+    use Step::*;
+    match p.step {
+        C => OPitch {
+            step: C,
+            tone: -p.tone,
+        },
+        step => OPitch {
+            step: (7 - step as u8).try_into().unwrap(),
+            tone: 12 - p.tone,
+        },
+    }
 }
 
 impl Neg for OPitch {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
-        let (step, tone) = get_negated_step_and_tone(&self);
-        OPitch { step, tone }
+        opitch_neg(self)
     }
 }
 
 impl NegAssign for OPitch {
     fn neg_assign(&mut self) {
-        let (step, tone) = get_negated_step_and_tone(self);
-        self.step = step;
-        self.tone = tone;
+        *self = opitch_neg(*self);
+    }
+}
+
+impl Neg for SimpleInterval {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        OPitch::from(self).neg().into()
+    }
+}
+
+impl NegAssign for SimpleInterval {
+    fn neg_assign(&mut self) {
+        *self = -*self
     }
 }

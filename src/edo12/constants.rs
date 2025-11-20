@@ -1,6 +1,7 @@
 use malachite_base::num::basic::traits::{NegativeOne, One, Two, Zero};
 
-use super::{Acci, OPitch, Step};
+use super::base::{Acci, OPitch, Step};
+use super::interval::{IntervalDeg, IntervalQual, SimpleInterval};
 
 impl Acci {
     pub const TRIPLE_FLAT: Self = Acci(-3);
@@ -63,5 +64,20 @@ impl Zero for OPitch {
     const ZERO: Self = OPitch {
         step: Step::C,
         tone: 0,
+    };
+}
+
+impl Zero for Step {
+    const ZERO: Self = Step::C;
+}
+
+impl Zero for IntervalDeg {
+    const ZERO: Self = IntervalDeg::Unison;
+}
+
+impl Zero for SimpleInterval {
+    const ZERO: Self = SimpleInterval {
+        deg: IntervalDeg::Unison,
+        qual: IntervalQual::Perfect,
     };
 }

@@ -1,4 +1,43 @@
 #[macro_export]
+macro_rules! impl_add_by_conversion {
+    ($($t1:ty, $t2:ty),*$(,)?) => {
+        $(
+            impl std::ops::Add<$t1> for $t1 {
+                type Output = $t1;
+                fn add(self, other: $t1) -> $t1 {
+                    let converted_self: $t2 = self.into();
+                    let converted_other: $t2 = other.into();
+                    let sum_converted = converted_self + converted_other;
+                    sum_converted.into()
+                }
+            }
+        )*
+    };
+}
+
+#[macro_export]
+macro_rules! impl_add_assign_by_add {
+    ($($t:ty),*$(,)?) => {
+        $(impl std::ops::AddAssign<$t> for $t {
+            fn add_assign(&mut self, other: $t) {
+                *self = *self + other;
+            }
+        })*
+    };
+}
+
+#[macro_export]
+macro_rules! impl_sub_assign_by_sub {
+    ($($t:ty),*$(,)?) => {
+        $(impl std::ops::SubAssign<$t> for $t {
+            fn sub_assign(&mut self, other: $t) {
+                *self = *self - other;
+            }
+        })*
+    };
+}
+
+#[macro_export]
 macro_rules! impl_sum_bisect {
     ($t:ty, $init:expr) => {
         impl std::iter::Sum for $t {
