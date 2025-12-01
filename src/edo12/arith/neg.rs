@@ -2,13 +2,13 @@ use std::ops::Neg;
 
 use malachite_base::num::arithmetic::traits::NegAssign;
 
-use super::super::{Acci, OPitch, SimpleInterval, Step};
+use super::super::{Acci, OPitch, SimpleInterval, OStep};
 
-impl Neg for Step {
+impl Neg for OStep {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
-        use Step::*;
+        use OStep::*;
         match self {
             C => self,
             step => (7 - step as u8).try_into().unwrap(),
@@ -24,7 +24,7 @@ impl NegAssign for Acci {
 
 #[inline]
 fn opitch_neg(p: OPitch) -> OPitch {
-    use Step::*;
+    use OStep::*;
     match p.step {
         C => OPitch {
             step: C,

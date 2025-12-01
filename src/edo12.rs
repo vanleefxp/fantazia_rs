@@ -1,12 +1,13 @@
 mod arith;
 mod base;
 mod constants;
+mod cmp;
 mod interval;
 mod parsing;
 mod repr;
 
-pub use base::{Acci, OPitch, Step};
-pub use interval::{IntervalDeg, IntervalQual, SimpleInterval};
+pub use base::{Acci, OPitch, Pitch, OStep, Step};
+pub use interval::{SimpleIntervalDeg, IntervalQual, SimpleInterval, Interval, IntervalDeg, AcciByQual};
 pub use parsing::opitch;
 
 #[cfg(test)]
@@ -33,7 +34,7 @@ mod test {
     }
     #[test]
     fn test_step_display() {
-        use Step::*;
+        use OStep::*;
         let steps = [C, D, E, F, G, A, B];
         steps.into_iter().for_each(|step| println!("{}", step));
     }
@@ -71,5 +72,11 @@ mod test {
         for s in invalid_intervals {
             assert!(dbg!(s.parse::<SimpleInterval>()).is_err())
         }
+    }
+
+    #[test]
+    fn test_compound_interval() {
+        let interval: Interval = Pitch::from_str("E_-1").unwrap().into();
+        println!("{}", interval);
     }
 }

@@ -4,10 +4,10 @@ use anyhow::{anyhow, bail};
 use itertools::Itertools as _;
 use uncased::AsUncased as _;
 
-use super::base::{Acci, OPitch, STEP_NAMES, Step};
-use super::interval::{IntervalDeg, IntervalQual, SimpleInterval};
+use super::base::{Acci, OPitch, Pitch, STEP_NAMES, OStep};
+use super::interval::{SimpleIntervalDeg, IntervalQual, SimpleInterval};
 
-impl FromStr for Step {
+impl FromStr for OStep {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -61,12 +61,12 @@ impl FromStr for OPitch {
     }
 }
 
-impl FromStr for IntervalDeg {
+impl FromStr for SimpleIntervalDeg {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let deg_plus_1: u8 = s.parse()?;
-        let deg = IntervalDeg::try_from(
+        let deg = SimpleIntervalDeg::try_from(
             deg_plus_1
                 .checked_sub(1)
                 .ok_or_else(|| anyhow!("0 is not a valid interval degree."))?,
@@ -150,8 +150,8 @@ impl FromStr for SimpleInterval {
             .map(|(idx, _)| (&s[..idx], &s[idx..]))
             .ok_or_else(|| anyhow!("Invalid interval format: {s}"))?;
         let qual: IntervalQual = qual.parse()?;
-        let deg: IntervalDeg = deg.parse()?;
-        use IntervalDeg::*;
+        let deg: SimpleIntervalDeg = deg.parse()?;
+        use SimpleIntervalDeg::*;
         use IntervalQual::*;
         match (qual, deg) {
             (Major | Minor, Unison | Fourth | Fifth) | (Perfect, Second | Third | Sixth | Seventh) => {
@@ -160,6 +160,22 @@ impl FromStr for SimpleInterval {
             _ => {},
         }
         Ok(SimpleInterval { deg, qual })
+    }
+}
+
+impl FromStr for Pitch {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(idx) = s.find('_') {
+            let opitch_src = &s[..idx];
+            let octave_src = &s[idx + 1..];
+            let opitch: OPitch = opitch_src.parse()?;
+            let octave: i8 = octave_src.parse()?;
+            Ok(Pitch::from_opitch_and_octave(opitch, octave))
+        } else {
+            OPitch::from_str(s).map(Pitch::from)
+        }
     }
 }
 

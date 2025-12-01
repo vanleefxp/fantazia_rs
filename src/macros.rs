@@ -83,3 +83,16 @@ macro_rules! impl_sum_bisect {
         }
     };
 }
+
+#[macro_export]
+macro_rules! impl_from_mod {
+    ($t:ty, $n: expr, $repr_num_t:ty; $($num_t:ty),+$(,)?) => {
+        $(
+            impl FromMod<$num_t> for $t {
+                fn from_mod(value: $num_t) -> Self {
+                    <$t>::try_from(value.mod_op($n) as $repr_num_t).unwrap()
+                }
+            }
+        )*
+    };
+}

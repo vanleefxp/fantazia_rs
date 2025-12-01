@@ -1,11 +1,11 @@
 use std::{iter::Sum, ops::Add};
 
-use malachite_base::num::{arithmetic::traits::ModAdd, basic::traits::Zero as _};
+use malachite_base::num::{arithmetic::traits::{ModAdd}, basic::traits::Zero as _};
 
-use super::super::{IntervalDeg, OPitch, SimpleInterval, Step};
+use super::super::{SimpleIntervalDeg, OPitch, SimpleInterval, OStep};
 use crate::{impl_add_assign_by_add, impl_add_by_conversion, impl_sum_bisect};
 
-impl Add for Step {
+impl Add for OStep {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -13,7 +13,7 @@ impl Add for Step {
     }
 }
 
-impl Add for IntervalDeg {
+impl Add for SimpleIntervalDeg {
     type Output = Self;
     fn add(self, rhs: Self) -> Self::Output {
         ((self as u8).mod_add(rhs as u8, 7)).try_into().unwrap()

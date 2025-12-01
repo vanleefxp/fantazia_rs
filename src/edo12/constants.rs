@@ -1,7 +1,9 @@
 use malachite_base::num::basic::traits::{NegativeOne, One, Two, Zero};
 
-use super::base::{Acci, OPitch, Step};
-use super::interval::{IntervalDeg, IntervalQual, SimpleInterval};
+use crate::edo12::IntervalDeg;
+
+use super::base::{Acci, OPitch, Pitch, OStep, Step};
+use super::interval::{SimpleIntervalDeg, IntervalQual, SimpleInterval, Interval};
 
 impl Acci {
     pub const TRIPLE_FLAT: Self = Acci(-3);
@@ -31,53 +33,72 @@ impl NegativeOne for Acci {
 
 impl OPitch {
     pub const C: Self = OPitch {
-        step: Step::C,
+        step: OStep::C,
         tone: 0,
     };
     pub const D: Self = OPitch {
-        step: Step::D,
+        step: OStep::D,
         tone: 2,
     };
     pub const E: Self = OPitch {
-        step: Step::E,
+        step: OStep::E,
         tone: 4,
     };
     pub const F: Self = OPitch {
-        step: Step::F,
+        step: OStep::F,
         tone: 5,
     };
     pub const G: Self = OPitch {
-        step: Step::G,
+        step: OStep::G,
         tone: 7,
     };
     pub const A: Self = OPitch {
-        step: Step::A,
+        step: OStep::A,
         tone: 9,
     };
     pub const B: Self = OPitch {
-        step: Step::B,
+        step: OStep::B,
         tone: 11,
     };
 }
 
 impl Zero for OPitch {
     const ZERO: Self = OPitch {
-        step: Step::C,
+        step: OStep::C,
         tone: 0,
     };
 }
 
-impl Zero for Step {
-    const ZERO: Self = Step::C;
+impl Zero for Pitch {
+    const ZERO: Self = Pitch {
+        step: Step(0),
+        tone: 0,
+    };
+}
+
+impl Zero for OStep {
+    const ZERO: Self = OStep::C;
+}
+
+impl Zero for SimpleIntervalDeg {
+    const ZERO: Self = SimpleIntervalDeg::Unison;
 }
 
 impl Zero for IntervalDeg {
-    const ZERO: Self = IntervalDeg::Unison;
+    const ZERO: Self = IntervalDeg(0);
 }
 
 impl Zero for SimpleInterval {
     const ZERO: Self = SimpleInterval {
-        deg: IntervalDeg::Unison,
+        deg: SimpleIntervalDeg::Unison,
         qual: IntervalQual::Perfect,
     };
 }
+
+impl Zero for Interval {
+    const ZERO: Self = Interval {
+        deg: IntervalDeg::ZERO,
+        qual: IntervalQual::Perfect,
+    };
+}
+
