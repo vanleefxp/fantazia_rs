@@ -1,11 +1,11 @@
-use derive_more as dm;
+use derive_more::*;
 use malachite_base::num::arithmetic::traits::{DivMod as _, Mod as _};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use super::base::{Acci, OPitch, OStep, Pitch, Step};
 use crate::{impl_from_mod, traits::FromMod};
 
-#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum IntervalQual {
     Diminished(u8),
     Minor,
@@ -16,7 +16,7 @@ pub enum IntervalQual {
 
 #[repr(u8)]
 #[derive(IntoPrimitive, TryFromPrimitive, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub enum SimpleIntervalDeg {
+pub enum OIntervalDeg {
     Unison = 0,
     Second = 1,
     Third = 2,
@@ -26,34 +26,34 @@ pub enum SimpleIntervalDeg {
     Seventh = 6,
 }
 
-impl_from_mod!(SimpleIntervalDeg, 7, u8; u8, i8, u16, i16, u32, i32, u64, i64, u128, i128);
+impl_from_mod!(OIntervalDeg, 7, u8; u8, i8, u16, i16, u32, i32, u64, i64, u128, i128);
 
-impl From<OStep> for SimpleIntervalDeg {
+impl From<OStep> for OIntervalDeg {
     fn from(value: OStep) -> Self {
-        SimpleIntervalDeg::try_from(u8::try_from(value).unwrap()).unwrap()
+        OIntervalDeg::try_from(u8::try_from(value).unwrap()).unwrap()
     }
 }
 
-impl From<Step> for SimpleIntervalDeg {
+impl From<Step> for OIntervalDeg {
     fn from(value: Step) -> Self {
         IntervalDeg::from(value).into()
     }
 }
 
-impl From<IntervalDeg> for SimpleIntervalDeg {
+impl From<IntervalDeg> for OIntervalDeg {
     fn from(value: IntervalDeg) -> Self {
         Self::from_mod(value.0)
     }
 }
 
 #[derive(
-    dm::From,
-    dm::Into,
-    dm::Add,
-    dm::Sub,
-    dm::AddAssign,
-    dm::SubAssign,
-    dm::Neg,
+    From,
+    Into,
+    Add,
+    Sub,
+    AddAssign,
+    SubAssign,
+    Neg,
     Clone,
     Copy,
     Eq,
@@ -69,10 +69,10 @@ impl IntervalDeg {
         self.0.div_mod(7).0
     }
 
-    pub fn into_odeg_and_octave(&self) -> (SimpleIntervalDeg, i8) {
+    pub fn into_odeg_and_octave(&self) -> (OIntervalDeg, i8) {
         let (octave, odeg) = self.0.div_mod(7);
         let odeg = odeg as u8;
-        (SimpleIntervalDeg::try_from(odeg).unwrap(), octave)
+        (OIntervalDeg::try_from(odeg).unwrap(), octave)
     }
 }
 
@@ -84,12 +84,12 @@ impl From<Step> for IntervalDeg {
 
 impl From<OStep> for IntervalDeg {
     fn from(value: OStep) -> Self {
-        SimpleIntervalDeg::from(value).into()
+        OIntervalDeg::from(value).into()
     }
 }
 
-impl From<SimpleIntervalDeg> for IntervalDeg {
-    fn from(value: SimpleIntervalDeg) -> Self {
+impl From<OIntervalDeg> for IntervalDeg {
+    fn from(value: OIntervalDeg) -> Self {
         IntervalDeg(value as i8)
     }
 }
@@ -98,48 +98,48 @@ pub trait Qual {
     fn qual(&self) -> IntervalQual;
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
-pub struct SimpleInterval {
-    pub(crate) deg: SimpleIntervalDeg,
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct OInterval {
+    pub(crate) deg: OIntervalDeg,
     pub(crate) qual: IntervalQual,
 }
 
-impl SimpleInterval {
-    pub fn deg(&self) -> SimpleIntervalDeg {
+impl OInterval {
+    pub fn deg(&self) -> OIntervalDeg {
         self.deg
     }
 }
 
-impl Qual for SimpleInterval {
+impl Qual for OInterval {
     fn qual(&self) -> IntervalQual {
         self.qual
     }
 }
 
-impl From<Interval> for SimpleInterval {
+impl From<Interval> for OInterval {
     fn from(value: Interval) -> Self {
-        SimpleInterval {
+        OInterval {
             deg: value.deg.into(),
             qual: value.qual,
         }
     }
 }
 
-impl From<OPitch> for SimpleInterval {
+impl From<OPitch> for OInterval {
     fn from(value: OPitch) -> Self {
         let qual = value.qual();
-        let deg = SimpleIntervalDeg::from(value.step);
-        SimpleInterval { deg, qual }
+        let deg = OIntervalDeg::from(value.step);
+        OInterval { deg, qual }
     }
 }
 
-impl From<Pitch> for SimpleInterval {
+impl From<Pitch> for OInterval {
     fn from(value: Pitch) -> Self {
         OPitch::from(value).into()
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Interval {
     pub(crate) deg: IntervalDeg,
     pub(crate) qual: IntervalQual,
@@ -150,7 +150,7 @@ impl Interval {
         self.deg
     }
 
-    pub fn odeg(&self) -> SimpleIntervalDeg {
+    pub fn odeg(&self) -> OIntervalDeg {
         self.deg.into()
     }
 
@@ -159,8 +159,8 @@ impl Interval {
     }
 }
 
-impl From<SimpleInterval> for Interval {
-    fn from(value: SimpleInterval) -> Self {
+impl From<OInterval> for Interval {
+    fn from(value: OInterval) -> Self {
         Interval {
             deg: value.deg.into(),
             qual: value.qual,
@@ -247,7 +247,7 @@ impl AcciByQual for Step {
     }
 }
 
-impl AcciByQual for SimpleIntervalDeg {
+impl AcciByQual for OIntervalDeg {
     fn acci_by_qual(&self, qual: IntervalQual) -> Option<Acci> {
         OStep::from(*self).acci_by_qual(qual)
     }
@@ -259,8 +259,8 @@ impl AcciByQual for IntervalDeg {
     }
 }
 
-impl From<SimpleIntervalDeg> for OStep {
-    fn from(value: SimpleIntervalDeg) -> Self {
+impl From<OIntervalDeg> for OStep {
+    fn from(value: OIntervalDeg) -> Self {
         OStep::try_from(u8::try_from(value).unwrap()).unwrap()
     }
 }
@@ -271,16 +271,16 @@ impl From<IntervalDeg> for Step {
     }
 }
 
-impl From<SimpleInterval> for OPitch {
-    fn from(value: SimpleInterval) -> OPitch {
+impl From<OInterval> for OPitch {
+    fn from(value: OInterval) -> OPitch {
         let step: OStep = value.deg.into();
         let tone = step.diatonic_tone() + step.acci_by_qual(value.qual).unwrap().0;
         OPitch { step, tone }
     }
 }
 
-impl From<SimpleInterval> for Pitch {
-    fn from(value: SimpleInterval) -> Pitch {
+impl From<OInterval> for Pitch {
+    fn from(value: OInterval) -> Pitch {
         OPitch::from(value).into()
     }
 }

@@ -25,7 +25,11 @@ pub(crate) static STEP_NAMES: phf::Map<&UncasedStr, OStep> = phf::phf_map! {
 };
 
 #[repr(u8)]
-#[derive(IntoPrimitive, TryFromPrimitive, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(IntoPrimitive, TryFromPrimitive, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum OStep {
     C = 0,
     D = 1,
@@ -65,6 +69,11 @@ impl From<Step> for OStep {
     Debug,
     PartialOrd,
     Ord,
+    Hash,
+)]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
 pub struct Step(pub(crate) i8);
 
@@ -108,6 +117,11 @@ impl_from_mod!(OStep, 7, u8; u8, i8, u16, i16, u32, i32, u64, i64, u128, i128);
     Debug,
     PartialOrd,
     Ord,
+    Hash,
+)]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
 pub struct Acci(pub(crate) i8);
 // in real music it is not common to use accidentals that modifies a pitch by more than 2 semitones
@@ -138,7 +152,8 @@ pub trait PitchNotation {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+#[cfg_attr(feature="rkyv", derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize))]
 pub struct OPitch {
     pub(crate) step: OStep,
     pub(crate) tone: i8,
@@ -244,7 +259,11 @@ macro_rules! impl_co5_order_as_primitive {
 impl_co5_order_as_primitive!(i8);
 
 #[derive(
-    Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord, Add, AddAssign, Sum, Sub, SubAssign, Neg,
+    Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord, Add, AddAssign, Sum, Sub, SubAssign, Neg, Hash,
+)]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
 pub struct Pitch {
     pub(crate) step: Step,

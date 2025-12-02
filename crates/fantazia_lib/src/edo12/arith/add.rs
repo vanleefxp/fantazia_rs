@@ -2,7 +2,7 @@ use std::{iter::Sum, ops::Add};
 
 use malachite_base::num::{arithmetic::traits::ModAdd, basic::traits::Zero as _};
 
-use super::super::{OPitch, OStep, SimpleInterval, SimpleIntervalDeg};
+use super::super::{OPitch, OStep, OInterval, OIntervalDeg};
 use crate::{impl_add_assign_by_add, impl_add_by_conversion, impl_sum_bisect};
 
 macro_rules! impl_add_by_mod {
@@ -18,7 +18,7 @@ macro_rules! impl_add_by_mod {
     };
 }
 
-impl_add_by_mod!(7, u8; OStep, SimpleIntervalDeg);
+impl_add_by_mod!(7, u8; OStep, OIntervalDeg);
 
 #[inline]
 fn opitch_add(p1: OPitch, p2: OPitch) -> OPitch {
@@ -40,13 +40,13 @@ impl Add for OPitch {
     }
 }
 
-impl_add_by_conversion!(SimpleInterval, OPitch);
+impl_add_by_conversion!(OInterval, OPitch);
 
-impl Sum for SimpleInterval {
+impl Sum for OInterval {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.map(OPitch::from).sum::<OPitch>().into()
     }
 }
 
-impl_add_assign_by_add!(OPitch, SimpleInterval);
+impl_add_assign_by_add!(OPitch, OInterval);
 impl_sum_bisect!(OPitch, OPitch::ZERO);

@@ -5,7 +5,7 @@ use itertools::Itertools as _;
 use uncased::AsUncased as _;
 
 use super::base::{Acci, OPitch, OStep, Pitch, STEP_NAMES};
-use super::interval::{IntervalQual, SimpleInterval, SimpleIntervalDeg};
+use super::interval::{IntervalQual, OInterval, OIntervalDeg, Interval};
 
 impl FromStr for OStep {
     type Err = anyhow::Error;
@@ -61,12 +61,12 @@ impl FromStr for OPitch {
     }
 }
 
-impl FromStr for SimpleIntervalDeg {
+impl FromStr for OIntervalDeg {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let deg_plus_1: u8 = s.parse()?;
-        let deg = SimpleIntervalDeg::try_from(
+        let deg = OIntervalDeg::try_from(
             deg_plus_1
                 .checked_sub(1)
                 .ok_or_else(|| anyhow!("0 is not a valid interval degree."))?,
@@ -138,7 +138,7 @@ impl FromStr for IntervalQual {
     }
 }
 
-impl FromStr for SimpleInterval {
+impl FromStr for OInterval {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -150,9 +150,9 @@ impl FromStr for SimpleInterval {
             .map(|(idx, _)| (&s[..idx], &s[idx..]))
             .ok_or_else(|| anyhow!("Invalid interval format: {s}"))?;
         let qual: IntervalQual = qual.parse()?;
-        let deg: SimpleIntervalDeg = deg.parse()?;
+        let deg: OIntervalDeg = deg.parse()?;
         use IntervalQual::*;
-        use SimpleIntervalDeg::*;
+        use OIntervalDeg::*;
         match (qual, deg) {
             (Major | Minor, Unison | Fourth | Fifth)
             | (Perfect, Second | Third | Sixth | Seventh) => {
@@ -160,7 +160,7 @@ impl FromStr for SimpleInterval {
             }
             _ => {}
         }
-        Ok(SimpleInterval { deg, qual })
+        Ok(OInterval { deg, qual })
     }
 }
 
@@ -180,11 +180,10 @@ impl FromStr for Pitch {
     }
 }
 
-#[macro_export]
-macro_rules! opitch {
-    ($src:expr) => {
-        OPitch::from_str($src).unwrap()
-    };
-}
+impl FromStr for Interval {
+    type Err = anyhow::Error;
 
-pub use opitch;
+    fn from_str(_: &str) -> Result<Self, Self::Err> {
+        todo!() // TODO: implement this
+    }
+}

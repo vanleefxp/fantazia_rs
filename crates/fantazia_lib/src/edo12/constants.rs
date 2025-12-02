@@ -3,7 +3,7 @@ use malachite_base::num::basic::traits::{NegativeOne, One, Two, Zero};
 use crate::edo12::IntervalDeg;
 
 use super::base::{Acci, OPitch, OStep, Pitch, Step};
-use super::interval::{Interval, IntervalQual, SimpleInterval, SimpleIntervalDeg};
+use super::interval::{Interval, IntervalQual, OInterval, OIntervalDeg};
 
 impl Acci {
     pub const TRIPLE_FLAT: Self = Acci(-3);
@@ -80,17 +80,17 @@ impl Zero for OStep {
     const ZERO: Self = OStep::C;
 }
 
-impl Zero for SimpleIntervalDeg {
-    const ZERO: Self = SimpleIntervalDeg::Unison;
+impl Zero for OIntervalDeg {
+    const ZERO: Self = OIntervalDeg::Unison;
 }
 
 impl Zero for IntervalDeg {
     const ZERO: Self = IntervalDeg(0);
 }
 
-impl Zero for SimpleInterval {
-    const ZERO: Self = SimpleInterval {
-        deg: SimpleIntervalDeg::Unison,
+impl Zero for OInterval {
+    const ZERO: Self = OInterval {
+        deg: OIntervalDeg::Unison,
         qual: IntervalQual::Perfect,
     };
 }

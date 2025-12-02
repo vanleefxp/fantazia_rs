@@ -1,6 +1,6 @@
 use std::ops::Sub;
 
-use super::super::{OPitch, OStep, SimpleInterval};
+use super::super::{OPitch, OStep, OInterval};
 use crate::impl_sub_assign_by_sub;
 
 impl Sub for OStep {
@@ -33,7 +33,7 @@ impl Sub for OPitch {
     }
 }
 
-impl Sub for SimpleInterval {
+impl Sub for OInterval {
     type Output = Self;
     fn sub(self, rhs: Self) -> Self::Output {
         let this_pitch = OPitch::from(self);
@@ -42,4 +42,4 @@ impl Sub for SimpleInterval {
     }
 }
 
-impl_sub_assign_by_sub!(OPitch, SimpleInterval);
+impl_sub_assign_by_sub!(OPitch, OInterval);

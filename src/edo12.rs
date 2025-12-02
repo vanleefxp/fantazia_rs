@@ -1,16 +1,7 @@
-mod arith;
-mod base;
-mod cmp;
-mod constants;
-mod interval;
-mod parsing;
-mod repr;
+pub use fantazia_lib::edo12::*;
 
-pub use base::{Acci, OPitch, OStep, Pitch, PitchNotation, Step};
-pub use interval::{
-    AcciByQual, Interval, IntervalDeg, IntervalQual, SimpleInterval, SimpleIntervalDeg,
-};
-pub use parsing::opitch;
+#[cfg(feature = "proc-macro")]
+pub use fantazia_proc_macro::{opitch, pitch};
 
 #[cfg(test)]
 mod test {
@@ -22,13 +13,13 @@ mod test {
     #[test]
     fn test_acci_display() {
         let accidentals = [
-            Acci(-3), // triple flat
-            Acci(-2), // double flat
-            Acci(-1), // flat
-            Acci(0),  // natural
-            Acci(1),  // sharp
-            Acci(2),  // double sharp
-            Acci(3),  // triple sharp
+            Acci::from(-3), // triple flat
+            Acci::from(-2), // double flat
+            Acci::from(-1), // flat
+            Acci::from(0),  // natural
+            Acci::from(1),  // sharp
+            Acci::from(2),  // double sharp
+            Acci::from(3),  // triple sharp
         ];
         accidentals
             .into_iter()
@@ -52,7 +43,7 @@ mod test {
     }
     #[test]
     fn test_interval() {
-        let interval: SimpleInterval = (opitch!("D-") - opitch!("E")).into();
+        let interval: OInterval = (opitch!("D-") - opitch!("E")).into();
         println!("{}", interval);
     }
     #[test]
@@ -71,16 +62,21 @@ mod test {
         ];
         let invalid_intervals = ["M1", "m1", "P2", "P3", "M4", "m4", "M5", "m5", "P6", "P7"];
         for s in valid_intervals {
-            assert!(dbg!(s.parse::<SimpleInterval>()).is_ok())
+            assert!(dbg!(s.parse::<OInterval>()).is_ok())
         }
         for s in invalid_intervals {
-            assert!(dbg!(s.parse::<SimpleInterval>()).is_err())
+            assert!(dbg!(s.parse::<OInterval>()).is_err())
         }
     }
 
     #[test]
     fn test_compound_interval() {
-        let interval: Interval = Pitch::from_str("E_-1").unwrap().into();
+        let interval: Interval = pitch!("E_-1").into();
         println!("{}", interval);
+    }
+
+    #[test]
+    fn test_pitch_arith() {
+        println!("{}", Pitch::from_str("E_0").unwrap() + Pitch::from_str("E-_0").unwrap());
     }
 }

@@ -1,5 +1,7 @@
 use malachite_base::num::arithmetic::traits::{Abs, AbsAssign};
 
+use crate::edo12::IntervalQual;
+
 use super::super::{Interval, IntervalDeg, Pitch, Step};
 
 impl Abs for Pitch {
@@ -46,5 +48,18 @@ impl Abs for IntervalDeg {
 impl AbsAssign for Pitch {
     fn abs_assign(&mut self) {
         *self = self.abs();
+    }
+}
+
+impl Abs for IntervalQual {
+    type Output = Self;
+
+    fn abs(self) -> Self::Output {
+        use IntervalQual::*;
+        match self {
+            Diminished(n) => Augmented(n),
+            Minor => Major,
+            v => v,
+        }
     }
 }

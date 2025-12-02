@@ -2,9 +2,9 @@ use std::ops::Neg;
 
 use malachite_base::num::arithmetic::traits::NegAssign;
 
-use crate::edo12::{Interval, Pitch};
+use crate::edo12::{Interval, IntervalQual, Pitch};
 
-use super::super::{Acci, IntervalDeg, OPitch, OStep, SimpleInterval, Step};
+use super::super::{Acci, IntervalDeg, OPitch, OStep, OInterval, Step};
 
 macro_rules! derive_neg_assign_from_neg {
     ($($t:ty),*$(,)?) => {
@@ -18,7 +18,7 @@ macro_rules! derive_neg_assign_from_neg {
     };
 }
 
-macro_rules! derive_neg_assign {
+macro_rules! derive_neg_assign_from_field {
     ($($t:ty),*$(,)?) => {
         $(
             impl NegAssign for $t {
@@ -68,11 +68,26 @@ impl Neg for Interval {
     }
 }
 
-impl Neg for SimpleInterval {
+impl Neg for OInterval {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
         OPitch::from(self).neg().into()
+    }
+}
+
+impl Neg for IntervalQual {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        use IntervalQual::*;
+        match self {
+            Augmented(n) => Diminished(n),
+            Major => Minor,
+            Perfect => Perfect,
+            Minor => Major,
+            Diminished(n) => Augmented(n),
+        }
     }
 }
 
@@ -83,5 +98,5 @@ impl NegAssign for Pitch {
     }
 }
 
-derive_neg_assign_from_neg!(OPitch, SimpleInterval, Interval);
-derive_neg_assign!(Step, Acci, IntervalDeg);
+derive_neg_assign_from_neg!(OPitch, OInterval, Interval, IntervalQual);
+derive_neg_assign_from_field!(Step, Acci, IntervalDeg);
