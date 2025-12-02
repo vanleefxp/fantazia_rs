@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use malachite_base::num::comparison::traits::{OrdAbs, PartialOrdAbs};
 
-use crate::edo12::{Interval, IntervalDeg, IntervalQual, Pitch, Step};
+use super::super::{Interval, IntervalDeg, IntervalQual, Pitch, Step};
 
 macro_rules! derive_cmp_abs {
     ($($t:ty),*$(,)?) => {

@@ -27,5 +27,7 @@ syn = { version = "2.0.110", features = [
 ], optional = true }
 
 [features]
+default = ["pitch"]
 rkyv = ["dep:rkyv"]
 proc-macro-support = ["dep:quote", "dep:proc-macro2", "dep:syn"]
+pitch = []

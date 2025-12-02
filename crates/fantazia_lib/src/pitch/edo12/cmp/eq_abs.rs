@@ -1,6 +1,6 @@
 use malachite_base::num::comparison::traits::EqAbs;
 
-use crate::edo12::{Interval, IntervalDeg, Pitch, Step};
+use super::super::{Interval, IntervalDeg, Pitch, Step};
 
 macro_rules! derive_eq_abs {
     ($($t:ty),*$(,)?) => {

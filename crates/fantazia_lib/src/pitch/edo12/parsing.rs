@@ -4,7 +4,7 @@ use anyhow::{anyhow, bail};
 use itertools::Itertools as _;
 use uncased::AsUncased as _;
 
-use super::base::{Acci, OPitch, OStep, Pitch, STEP_NAMES};
+use super::base::{Acci, OPitch, OStep, Pitch, STEP_NAMES, Step};
 use super::interval::{IntervalQual, OInterval, OIntervalDeg, Interval};
 
 impl FromStr for OStep {
@@ -16,6 +16,19 @@ impl FromStr for OStep {
             .get(&key)
             .cloned()
             .ok_or_else(|| anyhow!("Invalid step name: {}", s))
+    }
+}
+
+impl FromStr for Step {
+    type Err = anyhow::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(idx) = s.find('_') {
+            let ostep = (&s[..idx]).parse::<OStep>()?;
+            let octave: i8 = (&s[idx + 1..]).parse()?;
+            Ok(Step(ostep as i8 + octave * 12))
+        } else {
+            Ok(s.parse::<OStep>()?.into())
+        }
     }
 }
 

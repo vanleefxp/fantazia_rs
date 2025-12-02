@@ -3,8 +3,7 @@ use std::fmt::{Debug, Display, Formatter, Write};
 use malachite_base::num::{arithmetic::traits::Abs, basic::traits::Zero as _};
 
 use super::base::{Acci, OPitch, OStep, Pitch, PitchNotation as _, Step};
-use super::interval::{IntervalQual, OInterval, OIntervalDeg};
-use crate::edo12::Interval;
+use super::interval::{IntervalQual, OInterval, OIntervalDeg, Interval};
 
 impl Display for OStep {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

@@ -2,9 +2,7 @@ use std::ops::Neg;
 
 use malachite_base::num::arithmetic::traits::NegAssign;
 
-use crate::edo12::{Interval, IntervalQual, Pitch};
-
-use super::super::{Acci, IntervalDeg, OPitch, OStep, OInterval, Step};
+use super::super::{Acci, IntervalDeg, OPitch, OStep, OInterval, Step, Interval, IntervalQual, Pitch};
 
 macro_rules! derive_neg_assign_from_neg {
     ($($t:ty),*$(,)?) => {

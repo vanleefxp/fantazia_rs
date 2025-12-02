@@ -1,2 +1,2 @@
-pub mod edo12;
+pub mod pitch;
 pub use fantazia_lib::traits;
