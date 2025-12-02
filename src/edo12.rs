@@ -1,13 +1,15 @@
 mod arith;
 mod base;
-mod constants;
 mod cmp;
+mod constants;
 mod interval;
 mod parsing;
 mod repr;
 
-pub use base::{Acci, OPitch, Pitch, OStep, Step};
-pub use interval::{SimpleIntervalDeg, IntervalQual, SimpleInterval, Interval, IntervalDeg, AcciByQual};
+pub use base::{Acci, OPitch, OStep, Pitch, PitchNotation, Step};
+pub use interval::{
+    AcciByQual, Interval, IntervalDeg, IntervalQual, SimpleInterval, SimpleIntervalDeg,
+};
 pub use parsing::opitch;
 
 #[cfg(test)]
@@ -64,7 +66,9 @@ mod test {
     }
     #[test]
     fn test_interval_parsing() {
-        let valid_intervals = ["P1", "m2", "M2", "m3", "M3", "P4", "A4", "d5", "P5", "m6", "M6", "m7", "M7"];
+        let valid_intervals = [
+            "P1", "m2", "M2", "m3", "M3", "P4", "A4", "d5", "P5", "m6", "M6", "m7", "M7",
+        ];
         let invalid_intervals = ["M1", "m1", "P2", "P3", "M4", "m4", "M5", "m5", "P6", "P7"];
         for s in valid_intervals {
             assert!(dbg!(s.parse::<SimpleInterval>()).is_ok())

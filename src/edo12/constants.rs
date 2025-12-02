@@ -2,8 +2,8 @@ use malachite_base::num::basic::traits::{NegativeOne, One, Two, Zero};
 
 use crate::edo12::IntervalDeg;
 
-use super::base::{Acci, OPitch, Pitch, OStep, Step};
-use super::interval::{SimpleIntervalDeg, IntervalQual, SimpleInterval, Interval};
+use super::base::{Acci, OPitch, OStep, Pitch, Step};
+use super::interval::{Interval, IntervalQual, SimpleInterval, SimpleIntervalDeg};
 
 impl Acci {
     pub const TRIPLE_FLAT: Self = Acci(-3);
@@ -101,4 +101,3 @@ impl Zero for Interval {
         qual: IntervalQual::Perfect,
     };
 }
-

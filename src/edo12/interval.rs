@@ -1,9 +1,9 @@
-use malachite_base::num::arithmetic::traits::{Mod as _, DivMod as _};
-use num_enum::{IntoPrimitive, TryFromPrimitive};
 use derive_more as dm;
+use malachite_base::num::arithmetic::traits::{DivMod as _, Mod as _};
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-use super::base::{OPitch, OStep, Step, Pitch, Acci};
-use crate::{traits::FromMod, impl_from_mod};
+use super::base::{Acci, OPitch, OStep, Pitch, Step};
+use crate::{impl_from_mod, traits::FromMod};
 
 #[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Debug)]
 pub enum IntervalQual {
@@ -46,7 +46,22 @@ impl From<IntervalDeg> for SimpleIntervalDeg {
     }
 }
 
-#[derive(dm::From, dm::Into, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Debug)]
+#[derive(
+    dm::From,
+    dm::Into,
+    dm::Add,
+    dm::Sub,
+    dm::AddAssign,
+    dm::SubAssign,
+    dm::Neg,
+    Clone,
+    Copy,
+    Eq,
+    PartialEq,
+    PartialOrd,
+    Ord,
+    Debug,
+)]
 pub struct IntervalDeg(pub(crate) i8);
 
 impl IntervalDeg {
@@ -103,7 +118,10 @@ impl Qual for SimpleInterval {
 
 impl From<Interval> for SimpleInterval {
     fn from(value: Interval) -> Self {
-        SimpleInterval { deg: value.deg.into(), qual: value.qual }
+        SimpleInterval {
+            deg: value.deg.into(),
+            qual: value.qual,
+        }
     }
 }
 
@@ -218,7 +236,7 @@ impl AcciByQual for OStep {
                 Augmented(n) => Some(Acci(n as i8)),
                 Diminished(n) => Some(Acci(-(n as i8) - 1)),
                 _ => None,
-            }
+            },
         }
     }
 }

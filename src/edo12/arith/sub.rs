@@ -1,6 +1,6 @@
 use std::ops::Sub;
 
-use super::super::{OPitch, SimpleInterval, OStep};
+use super::super::{OPitch, OStep, SimpleInterval};
 use crate::impl_sub_assign_by_sub;
 
 impl Sub for OStep {

@@ -1,10 +1,15 @@
 use derive_more::{Add, AddAssign, From, Into, Neg, Sub, SubAssign, Sum};
-use malachite_base::num::arithmetic::traits::{DivMod, Mod, ModMul};
+use malachite_base::num::{
+    arithmetic::traits::{DivMod, EqMod, Mod, ModMul},
+    basic::traits::Zero,
+};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use uncased::UncasedStr;
-use derive_more as dm;
 
-use crate::{traits::{Co5Order, FromMod}, impl_from_mod};
+use crate::{
+    impl_from_mod,
+    traits::{Co5Order, FromMod},
+};
 
 pub(crate) const DIATONIC: [i8; 7] = [0, 2, 4, 5, 7, 9, 11];
 pub(crate) const CO5_ORDER: [i8; 7] = [0, 2, 4, -1, 1, 3, 5];
@@ -44,7 +49,23 @@ impl From<Step> for OStep {
     }
 }
 
-#[derive(dm::From, dm::Into, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(
+    From,
+    Into,
+    Add,
+    AddAssign,
+    Sum,
+    Sub,
+    SubAssign,
+    Neg,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Debug,
+    PartialOrd,
+    Ord,
+)]
 pub struct Step(pub(crate) i8);
 
 impl Step {
@@ -71,10 +92,51 @@ impl From<OStep> for Step {
 
 impl_from_mod!(OStep, 7, u8; u8, i8, u16, i16, u32, i32, u64, i64, u128, i128);
 
-#[derive(Clone, Copy, PartialEq, Eq, From, Into, Add, AddAssign, Sub, SubAssign, Neg, Sum)]
+#[derive(
+    From,
+    Into,
+    Add,
+    AddAssign,
+    Sum,
+    Sub,
+    SubAssign,
+    Neg,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Debug,
+    PartialOrd,
+    Ord,
+)]
 pub struct Acci(pub(crate) i8);
 // in real music it is not common to use accidentals that modifies a pitch by more than 2 semitones
 // so `i8` would be enough
+
+pub trait PitchNotation {
+    type Step;
+    type OStep;
+    type Acci: Zero + PartialEq;
+    type OTone;
+    type Tone: PartialEq;
+    type Octave;
+
+    fn step(&self) -> Self::Step;
+    fn tone(&self) -> Self::Tone;
+    fn ostep(&self) -> Self::OStep;
+    fn octave(&self) -> Self::Octave;
+    fn octave_by_tone(&self) -> Self::Octave;
+    fn otone(&self) -> Self::OTone;
+    fn acci(&self) -> Self::Acci;
+
+    fn is_diatonic(&self) -> bool {
+        self.acci() == Self::Acci::ZERO
+    }
+
+    fn is_enharmonic(&self, other: &Self) -> bool {
+        self.tone() == other.tone()
+    }
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct OPitch {
@@ -82,14 +144,55 @@ pub struct OPitch {
     pub(crate) tone: i8,
 }
 
+impl PitchNotation for OPitch {
+    type Step = OStep;
+    type OStep = OStep;
+    type Acci = Acci;
+    type OTone = i8;
+    type Tone = i8;
+    type Octave = i8;
+
+    fn step(&self) -> Self::Step {
+        self.step
+    }
+
+    fn tone(&self) -> Self::Tone {
+        self.tone
+    }
+
+    fn ostep(&self) -> Self::OStep {
+        self.step
+    }
+
+    fn octave(&self) -> Self::Octave {
+        0
+    }
+
+    fn octave_by_tone(&self) -> Self::Octave {
+        self.tone.div_mod(12).0
+    }
+
+    fn otone(&self) -> Self::OTone {
+        self.tone
+    }
+
+    fn acci(&self) -> Self::Acci {
+        (self.tone as i8 - self.step.diatonic_tone() as i8).into()
+    }
+
+    fn is_diatonic(&self) -> bool {
+        self.tone == self.step.diatonic_tone()
+    }
+
+    fn is_enharmonic(&self, other: &Self) -> bool {
+        self.tone.eq_mod(other.tone, 12)
+    }
+}
+
 impl OPitch {
     pub const fn new(step: OStep, acci: Acci) -> Self {
         let tone = step.diatonic_tone() + acci.0;
         OPitch { step, tone }
-    }
-
-    pub const fn new_diatonic(step: OStep) -> Self {
-        OPitch { step, tone: step.diatonic_tone() }
     }
 
     pub const fn from_step_and_tone(step: OStep, tone: i8) -> Self {
@@ -104,31 +207,14 @@ impl OPitch {
         let tone = step.diatonic_tone() + (co5_order + 1).div_mod(7).0;
         OPitch { step, tone }
     }
-
-    pub const fn step(&self) -> OStep {
-        self.step
-    }
-
-    pub const fn tone(&self) -> i8 {
-        self.tone
-    }
-
-    pub fn acci(&self) -> Acci {
-        (self.tone as i8 - self.step.diatonic_tone() as i8).into()
-    }
-
-    pub const fn is_diatonic(&self) -> bool {
-        self.tone == self.step.diatonic_tone()
-    }
-
-    pub const fn is_enharmonic(&self, other: &Self) -> bool {
-        self.tone == other.tone
-    }
 }
 
 impl From<OStep> for OPitch {
     fn from(value: OStep) -> Self {
-        OPitch { step: value, tone: value.diatonic_tone() }
+        OPitch {
+            step: value,
+            tone: value.diatonic_tone(),
+        }
     }
 }
 
@@ -136,7 +222,10 @@ impl From<Pitch> for OPitch {
     fn from(pitch: Pitch) -> Self {
         let (ostep, octave) = pitch.step.into_ostep_and_octave();
         let otone = pitch.tone - 12 * octave;
-        OPitch { step: ostep, tone: otone }
+        OPitch {
+            step: ostep,
+            tone: otone,
+        }
     }
 }
 
@@ -154,10 +243,49 @@ macro_rules! impl_co5_order_as_primitive {
 
 impl_co5_order_as_primitive!(i8);
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(
+    Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord, Add, AddAssign, Sum, Sub, SubAssign, Neg,
+)]
 pub struct Pitch {
     pub(crate) step: Step,
     pub(crate) tone: i8,
+}
+
+impl PitchNotation for Pitch {
+    type Step = Step;
+    type OStep = OStep;
+    type Acci = Acci;
+    type OTone = i8;
+    type Tone = i8;
+    type Octave = i8;
+
+    fn step(&self) -> Step {
+        self.step
+    }
+
+    fn tone(&self) -> i8 {
+        self.tone
+    }
+
+    fn ostep(&self) -> OStep {
+        self.step.into()
+    }
+
+    fn octave(&self) -> i8 {
+        self.step.octave()
+    }
+
+    fn octave_by_tone(&self) -> i8 {
+        self.tone.div_mod(12).0
+    }
+
+    fn otone(&self) -> i8 {
+        self.tone - 12 * self.octave()
+    }
+
+    fn acci(&self) -> Acci {
+        (self.tone - self.step.diatonic_tone()).into()
+    }
 }
 
 impl Pitch {
@@ -176,34 +304,16 @@ impl Pitch {
         Pitch { step, tone }
     }
 
-    pub const fn step(&self) -> Step {
-        self.step
-    }
-
-    pub const fn tone(&self) -> i8 {
-        self.tone
-    }
-
-    pub fn ostep(&self) -> OStep {
-        self.step.into()
-    }
-
-    pub fn octave(&self) -> i8 {
-        self.step.octave()
-    }
-
-    pub fn otone(&self) -> i8 {
-        self.tone - 12 * self.octave()
-    }
-
-    pub fn acci(&self) -> Acci {
-        (self.tone - self.step.diatonic_tone()).into()
-    }
-
     pub fn into_opitch_and_octave(self) -> (OPitch, i8) {
-         let (ostep, octave) = self.step.into_ostep_and_octave();
+        let (ostep, octave) = self.step.into_ostep_and_octave();
         let otone = self.tone - 12 * octave;
-        (OPitch { step: ostep, tone: otone }, octave)
+        (
+            OPitch {
+                step: ostep,
+                tone: otone,
+            },
+            octave,
+        )
     }
 }
 

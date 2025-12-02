@@ -1,24 +1,24 @@
 use std::{iter::Sum, ops::Add};
 
-use malachite_base::num::{arithmetic::traits::{ModAdd}, basic::traits::Zero as _};
+use malachite_base::num::{arithmetic::traits::ModAdd, basic::traits::Zero as _};
 
-use super::super::{SimpleIntervalDeg, OPitch, SimpleInterval, OStep};
+use super::super::{OPitch, OStep, SimpleInterval, SimpleIntervalDeg};
 use crate::{impl_add_assign_by_add, impl_add_by_conversion, impl_sum_bisect};
 
-impl Add for OStep {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        ((self as u8).mod_add(rhs as u8, 7)).try_into().unwrap()
-    }
+macro_rules! impl_add_by_mod {
+    ($modulus: expr, $repr_t:ty; $($t:ty),* $(,)?) => {
+        $(
+            impl Add<$t> for $repr_t {
+                type Output = Self;
+                fn add(self, rhs: $t) -> Self::Output {
+                    ((self as $repr_t).mod_add(rhs as $repr_t, $modulus)).try_into().unwrap()
+                }
+            }
+        )*
+    };
 }
 
-impl Add for SimpleIntervalDeg {
-    type Output = Self;
-    fn add(self, rhs: Self) -> Self::Output {
-        ((self as u8).mod_add(rhs as u8, 7)).try_into().unwrap()
-    }
-}
+impl_add_by_mod!(7, u8; OStep, SimpleIntervalDeg);
 
 #[inline]
 fn opitch_add(p1: OPitch, p2: OPitch) -> OPitch {

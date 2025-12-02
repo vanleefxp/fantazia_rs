@@ -4,8 +4,8 @@ use anyhow::{anyhow, bail};
 use itertools::Itertools as _;
 use uncased::AsUncased as _;
 
-use super::base::{Acci, OPitch, Pitch, STEP_NAMES, OStep};
-use super::interval::{SimpleIntervalDeg, IntervalQual, SimpleInterval};
+use super::base::{Acci, OPitch, OStep, Pitch, STEP_NAMES};
+use super::interval::{IntervalQual, SimpleInterval, SimpleIntervalDeg};
 
 impl FromStr for OStep {
     type Err = anyhow::Error;
@@ -56,7 +56,7 @@ impl FromStr for OPitch {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.find(|ch: char| !ch.is_ascii_alphabetic()) {
             Some(idx) => Ok(OPitch::new((&s[..idx]).parse()?, (&s[idx..]).parse()?)),
-            None => Ok(OPitch::new_diatonic(s.parse()?)),
+            None => Ok(s.parse::<OStep>()?.into()),
         }
     }
 }
@@ -151,13 +151,14 @@ impl FromStr for SimpleInterval {
             .ok_or_else(|| anyhow!("Invalid interval format: {s}"))?;
         let qual: IntervalQual = qual.parse()?;
         let deg: SimpleIntervalDeg = deg.parse()?;
-        use SimpleIntervalDeg::*;
         use IntervalQual::*;
+        use SimpleIntervalDeg::*;
         match (qual, deg) {
-            (Major | Minor, Unison | Fourth | Fifth) | (Perfect, Second | Third | Sixth | Seventh) => {
+            (Major | Minor, Unison | Fourth | Fifth)
+            | (Perfect, Second | Third | Sixth | Seventh) => {
                 bail!("{qual}{deg} is not a valid simple interval.")
-            },
-            _ => {},
+            }
+            _ => {}
         }
         Ok(SimpleInterval { deg, qual })
     }

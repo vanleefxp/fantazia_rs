@@ -34,10 +34,11 @@ macro_rules! derive_partial_ord_from_ord_abs {
 
 derive_cmp_abs!(Step, IntervalDeg);
 
-
 impl OrdAbs for Pitch {
     fn cmp_abs(&self, other: &Self) -> Ordering {
-        self.step.cmp_abs(&other.step).then_with(|| self.tone.cmp(&other.tone))
+        self.step
+            .cmp_abs(&other.step)
+            .then_with(|| self.tone.cmp(&other.tone))
     }
 }
 

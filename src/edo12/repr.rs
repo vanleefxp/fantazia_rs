@@ -1,11 +1,11 @@
 use std::fmt::{Debug, Display, Formatter, Write};
 
 use malachite_base::num::arithmetic::traits::Abs;
-use malachite_base::num::basic::traits::{Zero};
+use malachite_base::num::basic::traits::Zero;
 
+use super::base::{Acci, OPitch, OStep, Pitch, PitchNotation as _, Step};
+use super::interval::{IntervalQual, SimpleInterval, SimpleIntervalDeg};
 use crate::edo12::Interval;
-use super::base::{Acci, OPitch, Pitch, OStep, Step};
-use super::interval::{SimpleIntervalDeg, IntervalQual, SimpleInterval};
 
 impl Display for OStep {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
