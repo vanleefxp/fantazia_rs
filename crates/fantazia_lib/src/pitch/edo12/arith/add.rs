@@ -1,6 +1,6 @@
 use std::{iter::Sum, ops::Add};
 
-use malachite_base::num::{arithmetic::traits::ModAdd, basic::traits::Zero as _};
+use malachite_base::num::{arithmetic::traits::{CheckedAdd, ModAdd}, basic::traits::Zero as _};
 
 use super::super::{OPitch, OStep, OInterval, OIntervalDeg};
 use crate::{impl_add_assign_by_add, impl_add_by_conversion, impl_sum_bisect};
@@ -20,23 +20,33 @@ macro_rules! impl_add_by_mod {
 
 impl_add_by_mod!(7, u8; OStep, OIntervalDeg);
 
-#[inline]
-fn opitch_add(p1: OPitch, p2: OPitch) -> OPitch {
-    let mut step = p1.step as u8 + p2.step as u8;
-    let mut tone = p1.tone + p2.tone;
-    if step > 7 {
-        tone -= 12;
-        step -= 7;
-    }
-    let step = step.try_into().unwrap();
-    OPitch { step, tone }
-}
-
 impl Add for OPitch {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        opitch_add(self, rhs)
+        let mut step = self.step as u8 + rhs.step as u8;
+        let mut tone = self.tone + rhs.tone;
+        if step > 7 {
+            tone -= 12;
+            step -= 7;
+        }
+        let step = step.try_into().unwrap();
+        OPitch { step, tone }
+    }
+}
+
+impl CheckedAdd for OPitch {
+    type Output = Self;
+
+    fn checked_add(self, rhs: Self) -> Option<Self::Output> {
+        let mut step = self.step as u8 + rhs.step as u8;
+        let mut tone = self.tone.checked_add(rhs.tone)?;
+        if step > 7 {
+            tone = tone.checked_sub(12)?;
+            step -= 7;
+        }
+        let step = step.try_into().unwrap();
+        Some(OPitch { step, tone })
     }
 }
 

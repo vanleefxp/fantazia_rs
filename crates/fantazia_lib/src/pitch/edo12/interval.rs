@@ -1,3 +1,4 @@
+use anyhow::bail;
 use derive_more::*;
 use malachite_base::num::arithmetic::traits::{DivMod as _, Mod as _};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -65,6 +66,10 @@ impl From<IntervalDeg> for OIntervalDeg {
 pub struct IntervalDeg(pub(crate) i8);
 
 impl IntervalDeg {
+    pub fn from_odeg_and_octave(odeg: OIntervalDeg, octave: i8) -> Self {
+        IntervalDeg(odeg as i8 + octave * 7)
+    }
+
     pub fn octave(&self) -> i8 {
         self.0.div_mod(7).0
     }
@@ -98,13 +103,33 @@ pub trait Qual {
     fn qual(&self) -> IntervalQual;
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Neg)]
 pub struct OInterval {
     pub(crate) deg: OIntervalDeg,
     pub(crate) qual: IntervalQual,
 }
 
 impl OInterval {
+    pub fn try_from_deg_and_qual(deg: OIntervalDeg, qual: IntervalQual) -> Result<Self, anyhow::Error> {
+        use OIntervalDeg::*;
+        use IntervalQual::*;
+        match (qual, deg) {
+            (Major | Minor, Unison | Fourth | Fifth)
+            | (Perfect, Second | Third | Sixth | Seventh) => {
+                bail!("{qual}{deg} is not a valid simple interval.")
+            }
+            _ => Ok(OInterval { deg, qual })
+        }
+    }
+
+    pub fn from_deg_and_qual(deg: OIntervalDeg, qual: IntervalQual) -> Self {
+        Self::try_from_deg_and_qual(deg, qual).unwrap()
+    }
+
+    pub const unsafe fn from_deg_and_qual_unchecked(deg: OIntervalDeg, qual: IntervalQual) -> Self {
+        OInterval { deg, qual }
+    }
+
     pub fn deg(&self) -> OIntervalDeg {
         self.deg
     }
@@ -146,6 +171,28 @@ pub struct Interval {
 }
 
 impl Interval {
+    pub fn from_ointerval_and_octave(ointerval: OInterval, octave: i8) -> Self {
+        let deg = (ointerval.deg as i8 + 7 * octave).into();
+        let qual = ointerval.qual;
+        Interval { deg, qual }
+    }
+
+    pub fn from_deg_and_qual(deg: IntervalDeg, qual: IntervalQual) -> Result<Self, anyhow::Error> {
+        use OIntervalDeg::*;
+        use IntervalQual::*;
+        match (qual, OIntervalDeg::from(deg)) {
+            (Major | Minor, Unison | Fourth | Fifth)
+            | (Perfect, Second | Third | Sixth | Seventh) => {
+                bail!("Not a valid interval.")
+            }
+            _ => Ok(Interval { deg, qual })
+        }
+    }
+
+    pub const unsafe fn from_deg_and_qual_unchecked(deg: IntervalDeg, qual: IntervalQual) -> Self {
+        Interval { deg, qual }
+    }
+
     pub fn deg(&self) -> IntervalDeg {
         self.deg
     }

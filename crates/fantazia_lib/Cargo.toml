@@ -25,9 +25,11 @@ syn = { version = "2.0.110", features = [
     "full",
     "extra-traits",
 ], optional = true }
+thiserror = "2.0.17"
 
 [features]
-default = ["pitch"]
+default = ["pitch", "rhythm"]
 rkyv = ["dep:rkyv"]
 proc-macro-support = ["dep:quote", "dep:proc-macro2", "dep:syn"]
 pitch = []
+rhythm = []

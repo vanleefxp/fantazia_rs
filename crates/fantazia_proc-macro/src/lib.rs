@@ -6,7 +6,7 @@ use paste::paste;
 use fantazia_lib::pitch::edo12::{OPitch, Pitch, OInterval, Interval, Acci, OStep, Step
 };
 
-macro_rules! make_parse_proc_macro {
+macro_rules! make_parse_proc_macro_helper {
     ($t:ty, $fn_name:ident$(,)?) => {
         paste! {
             struct [< $t MacroInput >]([< $t >]);
@@ -16,6 +16,19 @@ macro_rules! make_parse_proc_macro {
                 value.to_token_stream().into()
             }
         }
+    };
+    ($t:ty$(,)?) => {
+        paste! {
+            make_parse_proc_macro_helper!($t, [< $t:lower >]);
+        }
+    }
+}
+
+macro_rules! make_parse_proc_macro {
+    ($($args:tt);*$(;)?) => {
+        $(
+            make_parse_proc_macro_helper!($args);
+        )*
     };
 }
 
@@ -104,34 +117,32 @@ impl Parse for AcciMacroInput {
     }
 }
 
-// impl Parse for SimpleIntervalMacroInput {
-//     fn parse(input: ParseStream) -> syn::Result<Self> {
-//         let src = input.parse::<syn::LitStr>()?.value();
-//         if let Ok(interval) = src.parse::<SimpleInterval>() {
-//             Ok(SimpleIntervalMacroInput(interval))
-//         } else if let Ok(pitch) = src.parse::<OPitch>() {
-//             Ok(SimpleIntervalMacroInput(pitch.into()))
-//         } else {
-//             Err(syn::Error::new(input.span(), "Invalid input"))
-//         }
-//     }
-// }
+impl Parse for OIntervalMacroInput {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let src = get_src_from_parse_stream(input)?;
+        if let Ok(interval) = src.parse::<OInterval>() {
+            Ok(OIntervalMacroInput(interval))
+        } else if let Ok(pitch) = src.parse::<OPitch>() {
+            Ok(OIntervalMacroInput(pitch.into()))
+        } else {
+            Err(syn::Error::new(input.span(), "Invalid input"))
+        }
+    }
+}
 
-// impl Parse for IntervalMacroInput {
-//     fn parse(input: ParseStream) -> syn::Result<Self> {
-//         let src = input.parse::<syn::LitStr>()?.value();
-//         if let Ok(interval) = src.parse::<Interval>() {
-//             Ok(IntervalMacroInput(interval))
-//         } else if let Ok(pitch) = src.parse::<Pitch>() {
-//             Ok(IntervalMacroInput(pitch.into()))
-//         } else {
-//             Err(syn::Error::new(input.span(), "Invalid input"))
-//         }
-//     }
-// }
+impl Parse for IntervalMacroInput {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let src = get_src_from_parse_stream(input)?;
+        if let Ok(interval) = src.parse::<Interval>() {
+            Ok(IntervalMacroInput(interval))
+        } else if let Ok(pitch) = src.parse::<Pitch>() {
+            Ok(IntervalMacroInput(pitch.into()))
+        } else {
+            Err(syn::Error::new(input.span(), "Invalid input"))
+        }
+    }
+}
 
-make_parse_proc_macro!(OPitch, opitch);
-make_parse_proc_macro!(Pitch, pitch);
-make_parse_proc_macro!(OStep, ostep);
-make_parse_proc_macro!(Step, step);
-make_parse_proc_macro!(Acci, acci);
+// [TODO] more detailed error messages for parsing errors
+
+make_parse_proc_macro!(OPitch; Pitch; OStep; Step; Acci; OInterval; Interval);

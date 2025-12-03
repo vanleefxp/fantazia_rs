@@ -2,6 +2,8 @@ use std::ops::Neg;
 
 use malachite_base::num::arithmetic::traits::NegAssign;
 
+use crate::pitch::edo12::OIntervalDeg;
+
 use super::super::{Acci, IntervalDeg, OPitch, OStep, OInterval, Step, Interval, IntervalQual, Pitch};
 
 macro_rules! derive_neg_assign_from_neg {
@@ -40,6 +42,14 @@ impl Neg for OStep {
     }
 }
 
+impl Neg for OIntervalDeg {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        OStep::from(self).neg().into()
+    }
+}
+
 impl Neg for OPitch {
     type Output = Self;
 
@@ -62,15 +72,7 @@ impl Neg for Interval {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
-        OPitch::from(self).neg().into()
-    }
-}
-
-impl Neg for OInterval {
-    type Output = Self;
-
-    fn neg(self) -> Self::Output {
-        OPitch::from(self).neg().into()
+        Pitch::from(self).neg().into()
     }
 }
 

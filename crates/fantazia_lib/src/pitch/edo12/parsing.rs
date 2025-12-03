@@ -5,7 +5,7 @@ use itertools::Itertools as _;
 use uncased::AsUncased as _;
 
 use super::base::{Acci, OPitch, OStep, Pitch, STEP_NAMES, Step};
-use super::interval::{IntervalQual, OInterval, OIntervalDeg, Interval};
+use super::interval::{IntervalQual, OInterval, OIntervalDeg, Interval, IntervalDeg};
 
 impl FromStr for OStep {
     type Err = anyhow::Error;
@@ -88,6 +88,21 @@ impl FromStr for OIntervalDeg {
     }
 }
 
+impl FromStr for IntervalDeg {
+    type Err = anyhow::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(idx) = s.find('_') {
+            let odeg_src = &s[..idx];
+            let octave_src = &s[idx + 1..];
+            let odeg: OIntervalDeg = odeg_src.parse()?;
+            let octave: i8 = i8::from_str_radix(octave_src, 10)?;
+            Ok(IntervalDeg::from_odeg_and_octave(odeg, octave))
+        } else {
+            Ok(OIntervalDeg::from_str(s)?.into())
+        }
+    }
+}
+
 impl FromStr for IntervalQual {
     type Err = anyhow::Error;
 
@@ -107,7 +122,7 @@ impl FromStr for IntervalQual {
                         match chars.next().unwrap() {
                             'A' => {
                                 if let Some('*') = chars.next() {
-                                    let n: u8 = chars.dropping_back(1).as_str().parse()?;
+                                    let n: u8 = u8::from_str_radix(chars.dropping_back(1).as_str(), 10)?;
                                     Ok(Augmented(n))
                                 } else {
                                     bail!("Invalid interval quality: {s}");
@@ -115,7 +130,7 @@ impl FromStr for IntervalQual {
                             }
                             'd' => {
                                 if let Some('*') = chars.next() {
-                                    let n: u8 = chars.dropping_back(1).as_str().parse()?;
+                                    let n: u8 = u8::from_str_radix(chars.dropping_back(1).as_str(), 10)?;
                                     Ok(Diminished(n))
                                 } else {
                                     bail!("Invalid interval quality: {s}");
@@ -151,29 +166,25 @@ impl FromStr for IntervalQual {
     }
 }
 
-impl FromStr for OInterval {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (qual, deg) = s
+fn split_qual_and_deg(s: &str) -> Result<(&str, &str), anyhow::Error> {
+    let (qual, deg) = s
             .char_indices()
             .rev()
             .take_while(|&(_, ch)| ch.is_ascii_digit())
             .last()
             .map(|(idx, _)| (&s[..idx], &s[idx..]))
             .ok_or_else(|| anyhow!("Invalid interval format: {s}"))?;
+    Ok((qual, deg))
+}
+
+impl FromStr for OInterval {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (qual, deg) = split_qual_and_deg(s)?;
         let qual: IntervalQual = qual.parse()?;
         let deg: OIntervalDeg = deg.parse()?;
-        use IntervalQual::*;
-        use OIntervalDeg::*;
-        match (qual, deg) {
-            (Major | Minor, Unison | Fourth | Fifth)
-            | (Perfect, Second | Third | Sixth | Seventh) => {
-                bail!("{qual}{deg} is not a valid simple interval.")
-            }
-            _ => {}
-        }
-        Ok(OInterval { deg, qual })
+        OInterval::try_from_deg_and_qual(deg, qual)
     }
 }
 
@@ -185,7 +196,7 @@ impl FromStr for Pitch {
             let opitch_src = &s[..idx];
             let octave_src = &s[idx + 1..];
             let opitch: OPitch = opitch_src.parse()?;
-            let octave: i8 = octave_src.parse()?;
+            let octave = i8::from_str_radix(octave_src, 10)?;
             Ok(Pitch::from_opitch_and_octave(opitch, octave))
         } else {
             OPitch::from_str(s).map(Pitch::from)
@@ -193,10 +204,59 @@ impl FromStr for Pitch {
     }
 }
 
+impl Interval {
+    fn from_str_positive(s: &str) -> Result<(Self, bool), anyhow::Error> {
+        let (mut qual, deg) = split_qual_and_deg(s)?;
+        let sign = if qual.ends_with('-') {
+            qual = &qual[..qual.len() - 1];
+            false
+        } else if qual.ends_with('+') {
+            qual = &qual[..qual.len() - 1];
+            true
+        } else {
+            true
+        };
+        let qual: IntervalQual = qual.parse()?;
+        let deg: IntervalDeg = (i8::from_str_radix(deg, 10)? - 1).into();
+        use IntervalQual::*;
+        use OIntervalDeg::*;
+        match (qual, OIntervalDeg::from(deg)) {
+            (Major | Minor, Unison | Fourth | Fifth)
+            | (Perfect, Second | Third | Sixth | Seventh) => {
+                bail!("{s} is not a valid interval.")
+            }
+            _ => Ok((Interval { deg, qual }, sign))
+        }
+    }
+}
+
 impl FromStr for Interval {
     type Err = anyhow::Error;
 
-    fn from_str(_: &str) -> Result<Self, Self::Err> {
-        todo!() // TODO: implement this
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.starts_with('+') {
+            let (result, sign) = Interval::from_str_positive(&s[1..])?;
+            if sign {
+                Ok(result)
+            } else {Ok(-result)}
+        } else if s.starts_with('-') {
+            let (result, sign) = Interval::from_str_positive(&s[1..])?;
+            if sign {
+                Ok(-result)}
+            else {Ok(result)}
+        } else if let Some(idx) = s.find('_') {
+            let ointerval_src = &s[..idx];
+            let octave_src = &s[idx + 1..];
+            let ointerval: OInterval = ointerval_src.parse()?;
+            let octave: i8 = i8::from_str_radix(octave_src, 10)?;
+            Ok(Interval::from_ointerval_and_octave(ointerval, octave))
+        } else {
+            let (result, sign) = Interval::from_str_positive(s)?;
+            if sign {
+                Ok(result)
+            } else {
+                Ok(-result)
+            }
+        }
     }
 }

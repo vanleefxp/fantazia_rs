@@ -2,8 +2,9 @@ use std::fmt::{Debug, Display, Formatter, Write};
 
 use malachite_base::num::{arithmetic::traits::Abs, basic::traits::Zero as _};
 
-use super::base::{Acci, OPitch, OStep, Pitch, PitchNotation as _, Step};
-use super::interval::{IntervalQual, OInterval, OIntervalDeg, Interval};
+use super::base::{Acci, OPitch, OStep, Pitch, Step};
+use super::interval::{IntervalQual, OInterval, OIntervalDeg, Interval, IntervalDeg};
+use super::traits::PitchNotation;
 
 impl Display for OStep {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -78,6 +79,13 @@ impl Display for IntervalQual {
 impl Display for OIntervalDeg {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", (*self) as u8 + 1)
+    }
+}
+
+impl Display for IntervalDeg {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let (odeg, octave) = self.into_odeg_and_octave();
+        write!(f, "{}_{}", odeg, octave)
     }
 }
 

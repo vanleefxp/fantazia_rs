@@ -11,25 +11,19 @@ impl Sub for OStep {
     }
 }
 
-#[inline]
-fn get_subtracted_step_and_tone(p1: &OPitch, p2: &OPitch) -> (OStep, i8) {
-    if p1.step >= p2.step {
-        let step = (p1.step as u8 - p2.step as u8).try_into().unwrap();
-        let tone = p1.tone - p2.tone;
-        (step, tone)
-    } else {
-        let step = (p1.step as u8 + (7 - p2.step as u8)).try_into().unwrap();
-        let tone = p1.tone - p2.tone + 12;
-        (step, tone)
-    }
-}
-
 impl Sub for OPitch {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        let (step, tone) = get_subtracted_step_and_tone(&self, &rhs);
-        OPitch { step, tone }
+        if self.step >= rhs.step {
+            let step = (self.step as u8 - rhs.step as u8).try_into().unwrap();
+            let tone = self.tone - rhs.tone;
+            OPitch { step, tone }
+        } else {
+            let step = (self.step as u8 + (7 - rhs.step as u8)).try_into().unwrap();
+            let tone = self.tone - rhs.tone + 12;
+            OPitch { step, tone }
+        }
     }
 }
 

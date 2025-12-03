@@ -1,18 +1,16 @@
 use derive_more::{Add, AddAssign, From, Into, Neg, Sub, SubAssign, Sum};
 use malachite_base::num::{
-    arithmetic::traits::{DivMod, EqMod, Mod, ModMul},
-    basic::traits::Zero,
+    arithmetic::traits::{DivMod, EqMod, Mod},
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use uncased::UncasedStr;
 
 use crate::{
-    impl_from_mod,
-    traits::{Co5Order, FromMod},
+    impl_from_mod, traits::FromMod
 };
+use super::traits::PitchNotation;
 
 pub(crate) const DIATONIC: [i8; 7] = [0, 2, 4, 5, 7, 9, 11];
-pub(crate) const CO5_ORDER: [i8; 7] = [0, 2, 4, -1, 1, 3, 5];
 
 pub(crate) static STEP_NAMES: phf::Map<&UncasedStr, OStep> = phf::phf_map! {
     UncasedStr::new("C") | UncasedStr::new("do") | UncasedStr::new("ut") => OStep::C,
@@ -78,6 +76,10 @@ impl From<Step> for OStep {
 pub struct Step(pub(crate) i8);
 
 impl Step {
+    pub fn from_ostep_and_octave(ostep: OStep, octave: i8) -> Self {
+        Step(ostep as i8 + 7 * octave)
+    }
+
     pub fn octave(&self) -> i8 {
         self.0.div_mod(7).0
     }
@@ -126,31 +128,6 @@ impl_from_mod!(OStep, 7, u8; u8, i8, u16, i16, u32, i32, u64, i64, u128, i128);
 pub struct Acci(pub(crate) i8);
 // in real music it is not common to use accidentals that modifies a pitch by more than 2 semitones
 // so `i8` would be enough
-
-pub trait PitchNotation {
-    type Step;
-    type OStep;
-    type Acci: Zero + PartialEq;
-    type OTone;
-    type Tone: PartialEq;
-    type Octave;
-
-    fn step(&self) -> Self::Step;
-    fn tone(&self) -> Self::Tone;
-    fn ostep(&self) -> Self::OStep;
-    fn octave(&self) -> Self::Octave;
-    fn octave_by_tone(&self) -> Self::Octave;
-    fn otone(&self) -> Self::OTone;
-    fn acci(&self) -> Self::Acci;
-
-    fn is_diatonic(&self) -> bool {
-        self.acci() == Self::Acci::ZERO
-    }
-
-    fn is_enharmonic(&self, other: &Self) -> bool {
-        self.tone() == other.tone()
-    }
-}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 #[cfg_attr(feature="rkyv", derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize))]
@@ -213,15 +190,6 @@ impl OPitch {
     pub const fn from_step_and_tone(step: OStep, tone: i8) -> Self {
         OPitch { step, tone }
     }
-
-    pub fn from_co5_order(co5_order: i8) -> Self {
-        let step: OStep = (co5_order.mod_op(7) as u8)
-            .mod_mul(4, 7)
-            .try_into()
-            .unwrap();
-        let tone = step.diatonic_tone() + (co5_order + 1).div_mod(7).0;
-        OPitch { step, tone }
-    }
 }
 
 impl From<OStep> for OPitch {
@@ -243,20 +211,6 @@ impl From<Pitch> for OPitch {
         }
     }
 }
-
-macro_rules! impl_co5_order_as_primitive {
-    ($($t:ty),+ $(,)?) => {
-        $(
-            impl Co5Order<$t> for OPitch {
-                fn co5_order(self) -> $t {
-                    CO5_ORDER[self.step as usize] as $t + <$t>::from(self.acci()) * 7
-                }
-            }
-        )*
-    };
-}
-
-impl_co5_order_as_primitive!(i8);
 
 #[derive(
     Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord, Add, AddAssign, Sum, Sub, SubAssign, Neg, Hash,

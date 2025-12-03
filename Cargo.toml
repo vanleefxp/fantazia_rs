@@ -8,7 +8,8 @@ fantazia_proc-macro = { path = "./crates/fantazia_proc-macro", optional = true }
 fantazia_lib = { path = "./crates/fantazia_lib" }
 
 [features]
-default = ["pitch"]
+default = ["pitch", "rhythm"]
 rkyv = ["fantazia_lib/rkyv"]
 proc-macro = ["dep:fantazia_proc-macro"]
 pitch = ["fantazia_lib/pitch"]
+rhythm = ["fantazia_lib/rhythm"]
