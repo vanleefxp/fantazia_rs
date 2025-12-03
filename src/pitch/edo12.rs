@@ -1,7 +1,7 @@
 pub use fantazia_lib::pitch::edo12::*;
 
 #[cfg(feature = "proc-macro")]
-pub use fantazia_proc_macro::{acci, ointerval, opitch, ostep, pitch, step, interval};
+pub use fantazia_proc_macro::{acci, interval, ointerval, opitch, ostep, pitch, qual, step};
 
 #[cfg(test)]
 mod test {

@@ -3,7 +3,10 @@ use derive_more::*;
 use malachite_base::num::arithmetic::traits::{DivMod as _, Mod as _};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-use super::base::{Acci, OPitch, OStep, Pitch, Step};
+use super::{
+    base::{OPitch, OStep, Pitch, Step},
+    traits::{AcciByQual as _, Qual},
+};
 use crate::{impl_from_mod, traits::FromMod};
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
@@ -99,10 +102,6 @@ impl From<OIntervalDeg> for IntervalDeg {
     }
 }
 
-pub trait Qual {
-    fn qual(&self) -> IntervalQual;
-}
-
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Neg)]
 pub struct OInterval {
     pub(crate) deg: OIntervalDeg,
@@ -110,15 +109,18 @@ pub struct OInterval {
 }
 
 impl OInterval {
-    pub fn try_from_deg_and_qual(deg: OIntervalDeg, qual: IntervalQual) -> Result<Self, anyhow::Error> {
-        use OIntervalDeg::*;
+    pub fn try_from_deg_and_qual(
+        deg: OIntervalDeg,
+        qual: IntervalQual,
+    ) -> Result<Self, anyhow::Error> {
         use IntervalQual::*;
+        use OIntervalDeg::*;
         match (qual, deg) {
             (Major | Minor, Unison | Fourth | Fifth)
             | (Perfect, Second | Third | Sixth | Seventh) => {
                 bail!("{qual}{deg} is not a valid simple interval.")
             }
-            _ => Ok(OInterval { deg, qual })
+            _ => Ok(OInterval { deg, qual }),
         }
     }
 
@@ -132,12 +134,6 @@ impl OInterval {
 
     pub fn deg(&self) -> OIntervalDeg {
         self.deg
-    }
-}
-
-impl Qual for OInterval {
-    fn qual(&self) -> IntervalQual {
-        self.qual
     }
 }
 
@@ -178,14 +174,14 @@ impl Interval {
     }
 
     pub fn from_deg_and_qual(deg: IntervalDeg, qual: IntervalQual) -> Result<Self, anyhow::Error> {
-        use OIntervalDeg::*;
         use IntervalQual::*;
+        use OIntervalDeg::*;
         match (qual, OIntervalDeg::from(deg)) {
             (Major | Minor, Unison | Fourth | Fifth)
             | (Perfect, Second | Third | Sixth | Seventh) => {
                 bail!("Not a valid interval.")
             }
-            _ => Ok(Interval { deg, qual })
+            _ => Ok(Interval { deg, qual }),
         }
     }
 
@@ -226,83 +222,6 @@ impl From<Pitch> for Interval {
 impl From<OPitch> for Interval {
     fn from(value: OPitch) -> Self {
         Pitch::from(value).into()
-    }
-}
-
-impl Qual for Interval {
-    fn qual(&self) -> IntervalQual {
-        self.qual
-    }
-}
-
-impl Qual for OPitch {
-    fn qual(&self) -> IntervalQual {
-        use IntervalQual::*;
-        use OStep::*;
-        let tone_diff = self.tone - self.step.diatonic_tone();
-        match self.step {
-            C | F | G => match tone_diff {
-                0 => Perfect,
-                n if n > 0 => Augmented(n as u8),
-                n => Diminished((-n) as u8),
-            },
-            _ => match tone_diff {
-                0 => Major,
-                -1 => Minor,
-                n if n > 0 => Augmented(n as u8),
-                n => Diminished((-n - 1) as u8),
-            },
-        }
-    }
-}
-
-impl Qual for Pitch {
-    fn qual(&self) -> IntervalQual {
-        OPitch::from(*self).qual()
-    }
-}
-
-pub trait AcciByQual {
-    fn acci_by_qual(&self, qual: IntervalQual) -> Option<Acci>;
-}
-
-impl AcciByQual for OStep {
-    fn acci_by_qual(&self, qual: IntervalQual) -> Option<Acci> {
-        use IntervalQual::*;
-        use OStep::*;
-        match self {
-            C | F | G => match qual {
-                Perfect => Some(Acci::NATURAL),
-                Augmented(n) => Some(Acci(n as i8)),
-                Diminished(n) => Some(Acci(-(n as i8))),
-                _ => None,
-            },
-            _ => match qual {
-                Major => Some(Acci::NATURAL),
-                Minor => Some(Acci::FLAT),
-                Augmented(n) => Some(Acci(n as i8)),
-                Diminished(n) => Some(Acci(-(n as i8) - 1)),
-                _ => None,
-            },
-        }
-    }
-}
-
-impl AcciByQual for Step {
-    fn acci_by_qual(&self, qual: IntervalQual) -> Option<Acci> {
-        OStep::from(*self).acci_by_qual(qual)
-    }
-}
-
-impl AcciByQual for OIntervalDeg {
-    fn acci_by_qual(&self, qual: IntervalQual) -> Option<Acci> {
-        OStep::from(*self).acci_by_qual(qual)
-    }
-}
-
-impl AcciByQual for IntervalDeg {
-    fn acci_by_qual(&self, qual: IntervalQual) -> Option<Acci> {
-        Step::from(*self).acci_by_qual(qual)
     }
 }
 

@@ -1,6 +1,6 @@
 use malachite_base::num::arithmetic::traits::{Abs, AbsAssign};
 
-use super::super::{Interval, IntervalDeg, Pitch, Step, IntervalQual};
+use super::super::{Interval, IntervalDeg, IntervalQual, Pitch, Step};
 
 impl Abs for Pitch {
     type Output = Self;

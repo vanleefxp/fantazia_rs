@@ -1,7 +1,7 @@
 use malachite_base::num::basic::traits::{NegativeOne, One, Two, Zero};
 
 use super::base::{Acci, OPitch, OStep, Pitch, Step};
-use super::interval::{Interval, IntervalQual, OInterval, OIntervalDeg, IntervalDeg};
+use super::interval::{Interval, IntervalDeg, IntervalQual, OInterval, OIntervalDeg};
 
 impl Acci {
     pub const TRIPLE_FLAT: Self = Acci(-3);

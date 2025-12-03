@@ -1,19 +1,16 @@
 mod arith;
 mod base;
 mod cmp;
+mod co5;
 mod constants;
 mod interval;
 mod parsing;
+mod qual;
 mod repr;
-mod co5;
 pub mod traits;
 
 #[cfg(feature = "proc-macro-support")]
-pub mod tokenize;
+mod tokenize;
 
 pub use base::{Acci, OPitch, OStep, Pitch, Step};
-pub use interval::{
-    AcciByQual, Interval, IntervalDeg, IntervalQual, OInterval, OIntervalDeg,
-};
-
-
+pub use interval::{Interval, IntervalDeg, IntervalQual, OInterval, OIntervalDeg};

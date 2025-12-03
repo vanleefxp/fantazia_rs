@@ -1,14 +1,10 @@
 use derive_more::{Add, AddAssign, From, Into, Neg, Sub, SubAssign, Sum};
-use malachite_base::num::{
-    arithmetic::traits::{DivMod, EqMod, Mod},
-};
+use malachite_base::num::arithmetic::traits::{DivMod, EqMod, Mod};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use uncased::UncasedStr;
 
-use crate::{
-    impl_from_mod, traits::FromMod
-};
 use super::traits::PitchNotation;
+use crate::{impl_from_mod, traits::FromMod};
 
 pub(crate) const DIATONIC: [i8; 7] = [0, 2, 4, 5, 7, 9, 11];
 
@@ -23,7 +19,9 @@ pub(crate) static STEP_NAMES: phf::Map<&UncasedStr, OStep> = phf::phf_map! {
 };
 
 #[repr(u8)]
-#[derive(IntoPrimitive, TryFromPrimitive, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
+#[derive(
+    IntoPrimitive, TryFromPrimitive, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash,
+)]
 #[cfg_attr(
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
@@ -130,7 +128,10 @@ pub struct Acci(pub(crate) i8);
 // so `i8` would be enough
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
-#[cfg_attr(feature="rkyv", derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize))]
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub struct OPitch {
     pub(crate) step: OStep,
     pub(crate) tone: i8,
@@ -213,7 +214,20 @@ impl From<Pitch> for OPitch {
 }
 
 #[derive(
-    Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord, Add, AddAssign, Sum, Sub, SubAssign, Neg, Hash,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Debug,
+    PartialOrd,
+    Ord,
+    Add,
+    AddAssign,
+    Sum,
+    Sub,
+    SubAssign,
+    Neg,
+    Hash,
 )]
 #[cfg_attr(
     feature = "rkyv",

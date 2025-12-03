@@ -1,9 +1,11 @@
+use std::{
+    cmp::Ordering,
+    ops::{Mul, MulAssign},
+};
 
-use std::{ops::{Mul, MulAssign}, cmp::Ordering};
+use malachite_base::num::arithmetic::traits::{CheckedMul, DivMod, ModMul as _, Sign};
 
-use malachite_base::num::arithmetic::traits::{DivMod, ModMul as _, Sign, CheckedMul};
-
-use crate::pitch::edo12::{Acci, OPitch, Step, OStep, Pitch};
+use crate::pitch::edo12::{Acci, OPitch, OStep, Pitch, Step};
 
 impl Mul<i8> for OStep {
     type Output = Self;
@@ -83,7 +85,9 @@ impl CheckedMul<i8> for OPitch {
         let step = self.step as i16 * rhs as i16;
         let (octave, step) = step.div_mod(7);
         let step: OStep = (step as u8).try_into().unwrap();
-        let tone = i8::try_from((self.tone as i16 * rhs as i16).checked_sub(octave.checked_mul(12)?)?).ok()?;
+        let tone =
+            i8::try_from((self.tone as i16 * rhs as i16).checked_sub(octave.checked_mul(12)?)?)
+                .ok()?;
         Some(OPitch { step, tone })
     }
 }
@@ -117,5 +121,4 @@ impl CheckedMul<i8> for Pitch {
             tone: self.tone.checked_mul(other)?,
         })
     }
-
 }

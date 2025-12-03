@@ -1,9 +1,13 @@
-use proc_macro::TokenStream;
-use syn::{parse::{Parse, ParseStream}, parse_macro_input};
-use quote::ToTokens;
 use paste::paste;
+use proc_macro::TokenStream;
+use quote::ToTokens;
+use syn::{
+    parse::{Parse, ParseStream},
+    parse_macro_input,
+};
 
-use fantazia_lib::pitch::edo12::{OPitch, Pitch, OInterval, Interval, Acci, OStep, Step
+use fantazia_lib::pitch::edo12::{
+    Acci, Interval, IntervalQual, OInterval, OPitch, OStep, Pitch, Step,
 };
 
 macro_rules! make_parse_proc_macro_helper {
@@ -19,15 +23,15 @@ macro_rules! make_parse_proc_macro_helper {
     };
     ($t:ty$(,)?) => {
         paste! {
-            make_parse_proc_macro_helper!($t, [< $t:lower >]);
+            make_parse_proc_macro_helper!($t, [< $t:snake >]);
         }
-    }
+    };
 }
 
 macro_rules! make_parse_proc_macro {
-    ($($args:tt);*$(;)?) => {
+    ($($t:ty$(,$fn_name:ident)?);*$(;)?) => {
         $(
-            make_parse_proc_macro_helper!($args);
+            make_parse_proc_macro_helper!($t$(,$fn_name)?);
         )*
     };
 }
@@ -72,11 +76,15 @@ impl Parse for OStepMacroInput {
         if input.peek(syn::LitInt) {
             let token = input.parse::<syn::LitInt>()?;
             let value = token.base10_parse::<u8>()?;
-            let value: OStep = value.try_into().map_err(|err| syn::Error::new(input.span(), err))?;
+            let value: OStep = value
+                .try_into()
+                .map_err(|err| syn::Error::new(input.span(), err))?;
             Ok(OStepMacroInput(value))
         } else {
             let src = get_src_from_parse_stream(input)?;
-            let value: OStep = src.parse().map_err(|err| syn::Error::new(input.span(), err))?;
+            let value: OStep = src
+                .parse()
+                .map_err(|err| syn::Error::new(input.span(), err))?;
             Ok(OStepMacroInput(value))
         }
     }
@@ -91,7 +99,9 @@ impl Parse for StepMacroInput {
             Ok(StepMacroInput(value))
         } else {
             let src = get_src_from_parse_stream(input)?;
-            let value: Step = src.parse().map_err(|err| syn::Error::new(input.span(), err))?;
+            let value: Step = src
+                .parse()
+                .map_err(|err| syn::Error::new(input.span(), err))?;
             Ok(StepMacroInput(value))
         }
     }
@@ -109,7 +119,10 @@ impl Parse for AcciMacroInput {
                 unreachable!()
             }
         } else if let Ok(token) = input.parse::<syn::LitStr>() {
-            let value: Acci = token.value().parse().map_err(|err| syn::Error::new(input.span(), err))?;
+            let value: Acci = token
+                .value()
+                .parse()
+                .map_err(|err| syn::Error::new(input.span(), err))?;
             Ok(AcciMacroInput(value))
         } else {
             Err(syn::Error::new(input.span(), "Invalid input"))
@@ -143,6 +156,24 @@ impl Parse for IntervalMacroInput {
     }
 }
 
+impl Parse for IntervalQualMacroInput {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let src = get_src_from_parse_stream(input)?;
+        src.parse()
+            .map(IntervalQualMacroInput)
+            .map_err(|err| syn::Error::new(input.span(), err))
+    }
+}
+
 // [TODO] more detailed error messages for parsing errors
 
-make_parse_proc_macro!(OPitch; Pitch; OStep; Step; Acci; OInterval; Interval);
+make_parse_proc_macro!(
+    OPitch, opitch;
+    Pitch;
+    OStep, ostep;
+    Step;
+    Acci;
+    OInterval, ointerval;
+    Interval;
+    IntervalQual, qual;
+);

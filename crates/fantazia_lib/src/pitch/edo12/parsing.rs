@@ -5,7 +5,7 @@ use itertools::Itertools as _;
 use uncased::AsUncased as _;
 
 use super::base::{Acci, OPitch, OStep, Pitch, STEP_NAMES, Step};
-use super::interval::{IntervalQual, OInterval, OIntervalDeg, Interval, IntervalDeg};
+use super::interval::{Interval, IntervalDeg, IntervalQual, OInterval, OIntervalDeg};
 
 impl FromStr for OStep {
     type Err = anyhow::Error;
@@ -122,7 +122,8 @@ impl FromStr for IntervalQual {
                         match chars.next().unwrap() {
                             'A' => {
                                 if let Some('*') = chars.next() {
-                                    let n: u8 = u8::from_str_radix(chars.dropping_back(1).as_str(), 10)?;
+                                    let n: u8 =
+                                        u8::from_str_radix(chars.dropping_back(1).as_str(), 10)?;
                                     Ok(Augmented(n))
                                 } else {
                                     bail!("Invalid interval quality: {s}");
@@ -130,7 +131,8 @@ impl FromStr for IntervalQual {
                             }
                             'd' => {
                                 if let Some('*') = chars.next() {
-                                    let n: u8 = u8::from_str_radix(chars.dropping_back(1).as_str(), 10)?;
+                                    let n: u8 =
+                                        u8::from_str_radix(chars.dropping_back(1).as_str(), 10)?;
                                     Ok(Diminished(n))
                                 } else {
                                     bail!("Invalid interval quality: {s}");
@@ -168,12 +170,12 @@ impl FromStr for IntervalQual {
 
 fn split_qual_and_deg(s: &str) -> Result<(&str, &str), anyhow::Error> {
     let (qual, deg) = s
-            .char_indices()
-            .rev()
-            .take_while(|&(_, ch)| ch.is_ascii_digit())
-            .last()
-            .map(|(idx, _)| (&s[..idx], &s[idx..]))
-            .ok_or_else(|| anyhow!("Invalid interval format: {s}"))?;
+        .char_indices()
+        .rev()
+        .take_while(|&(_, ch)| ch.is_ascii_digit())
+        .last()
+        .map(|(idx, _)| (&s[..idx], &s[idx..]))
+        .ok_or_else(|| anyhow!("Invalid interval format: {s}"))?;
     Ok((qual, deg))
 }
 
@@ -225,7 +227,7 @@ impl Interval {
             | (Perfect, Second | Third | Sixth | Seventh) => {
                 bail!("{s} is not a valid interval.")
             }
-            _ => Ok((Interval { deg, qual }, sign))
+            _ => Ok((Interval { deg, qual }, sign)),
         }
     }
 }
@@ -236,14 +238,10 @@ impl FromStr for Interval {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.starts_with('+') {
             let (result, sign) = Interval::from_str_positive(&s[1..])?;
-            if sign {
-                Ok(result)
-            } else {Ok(-result)}
+            if sign { Ok(result) } else { Ok(-result) }
         } else if s.starts_with('-') {
             let (result, sign) = Interval::from_str_positive(&s[1..])?;
-            if sign {
-                Ok(-result)}
-            else {Ok(result)}
+            if sign { Ok(-result) } else { Ok(result) }
         } else if let Some(idx) = s.find('_') {
             let ointerval_src = &s[..idx];
             let octave_src = &s[idx + 1..];
@@ -252,11 +250,7 @@ impl FromStr for Interval {
             Ok(Interval::from_ointerval_and_octave(ointerval, octave))
         } else {
             let (result, sign) = Interval::from_str_positive(s)?;
-            if sign {
-                Ok(result)
-            } else {
-                Ok(-result)
-            }
+            if sign { Ok(result) } else { Ok(-result) }
         }
     }
 }

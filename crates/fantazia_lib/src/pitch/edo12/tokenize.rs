@@ -1,8 +1,10 @@
 use malachite_base::strings::ToDebugString;
-use proc_macro2::{TokenStream};
+use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
 
-use super::{OStep, Step, OPitch, Pitch, OIntervalDeg, IntervalQual, IntervalDeg, Acci, Interval, OInterval};
+use super::{
+    Acci, Interval, IntervalDeg, IntervalQual, OInterval, OIntervalDeg, OPitch, OStep, Pitch, Step,
+};
 
 macro_rules! derive_to_tokens_for_newtype {
     ($t:ty, $mod_path:path) => {

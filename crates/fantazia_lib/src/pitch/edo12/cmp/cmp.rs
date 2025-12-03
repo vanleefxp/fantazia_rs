@@ -1,4 +1,4 @@
-use super::super::interval::{IntervalQual, OInterval, Interval};
+use super::super::interval::{Interval, IntervalQual, OInterval};
 use std::cmp::Ordering;
 
 macro_rules! derive_partial_ord_from_ord {
@@ -13,8 +13,8 @@ macro_rules! derive_partial_ord_from_ord {
 
 impl PartialOrd for IntervalQual {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        use Ordering::*;
         use IntervalQual::*;
+        use Ordering::*;
         match (self, other) {
             (Augmented(a), Augmented(b)) | (Diminished(b), Diminished(a)) => a.partial_cmp(b),
             (a, b) if a == b => Some(Equal),
@@ -29,13 +29,17 @@ impl PartialOrd for IntervalQual {
 
 impl Ord for OInterval {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.deg.cmp(&other.deg).then_with(|| self.qual.partial_cmp(&other.qual).unwrap())
+        self.deg
+            .cmp(&other.deg)
+            .then_with(|| self.qual.partial_cmp(&other.qual).unwrap())
     }
 }
 
 impl Ord for Interval {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.deg.cmp(&other.deg).then_with(|| self.qual.partial_cmp(&other.qual).unwrap())
+        self.deg
+            .cmp(&other.deg)
+            .then_with(|| self.qual.partial_cmp(&other.qual).unwrap())
     }
 }
 

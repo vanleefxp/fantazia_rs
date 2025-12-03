@@ -4,7 +4,9 @@ use malachite_base::num::arithmetic::traits::NegAssign;
 
 use crate::pitch::edo12::OIntervalDeg;
 
-use super::super::{Acci, IntervalDeg, OPitch, OStep, OInterval, Step, Interval, IntervalQual, Pitch};
+use super::super::{
+    Acci, Interval, IntervalDeg, IntervalQual, OInterval, OPitch, OStep, Pitch, Step,
+};
 
 macro_rules! derive_neg_assign_from_neg {
     ($($t:ty),*$(,)?) => {

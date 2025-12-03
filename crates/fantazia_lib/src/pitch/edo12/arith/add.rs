@@ -1,8 +1,11 @@
 use std::{iter::Sum, ops::Add};
 
-use malachite_base::num::{arithmetic::traits::{CheckedAdd, ModAdd}, basic::traits::Zero as _};
+use malachite_base::num::{
+    arithmetic::traits::{CheckedAdd, ModAdd},
+    basic::traits::Zero as _,
+};
 
-use super::super::{OPitch, OStep, OInterval, OIntervalDeg};
+use super::super::{OInterval, OIntervalDeg, OPitch, OStep};
 use crate::{impl_add_assign_by_add, impl_add_by_conversion, impl_sum_bisect};
 
 macro_rules! impl_add_by_mod {

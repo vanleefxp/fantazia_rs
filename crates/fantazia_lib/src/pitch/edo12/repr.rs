@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display, Formatter, Write};
 use malachite_base::num::{arithmetic::traits::Abs, basic::traits::Zero as _};
 
 use super::base::{Acci, OPitch, OStep, Pitch, Step};
-use super::interval::{IntervalQual, OInterval, OIntervalDeg, Interval, IntervalDeg};
+use super::interval::{Interval, IntervalDeg, IntervalQual, OInterval, OIntervalDeg};
 use super::traits::PitchNotation;
 
 impl Display for OStep {

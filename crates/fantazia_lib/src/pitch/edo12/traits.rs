@@ -1,5 +1,9 @@
 use malachite_base::num::basic::traits::Zero;
 
+use super::Acci;
+
+use super::IntervalQual;
+
 pub trait Co5Order {
     type Output;
     fn co5_order(self) -> Self::Output;
@@ -32,4 +36,16 @@ pub trait PitchNotation {
     fn is_enharmonic(&self, other: &Self) -> bool {
         self.tone() == other.tone()
     }
+}
+
+pub trait Qual {
+    fn qual(&self) -> IntervalQual;
+}
+
+pub trait AbsQual {
+    fn abs_qual(&self) -> IntervalQual;
+}
+
+pub trait AcciByQual {
+    fn acci_by_qual(&self, qual: IntervalQual) -> Option<Acci>;
 }
