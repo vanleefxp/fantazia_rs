@@ -54,19 +54,28 @@ impl From<IntervalDeg> for OIntervalDeg {
     From,
     Into,
     Add,
-    Sub,
     AddAssign,
+    Sum,
+    Sub,
     SubAssign,
     Neg,
     Clone,
     Copy,
-    Eq,
     PartialEq,
+    Eq,
+    Debug,
     PartialOrd,
     Ord,
-    Debug,
+    Hash,
+    Deref,
+    DerefMut,
+    Default,
 )]
-pub struct IntervalDeg(pub(crate) i8);
+#[cfg_attr(
+    feature = "rkyv",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
+pub struct IntervalDeg(pub i8);
 
 impl IntervalDeg {
     pub fn from_odeg_and_octave(odeg: OIntervalDeg, octave: i8) -> Self {
@@ -108,17 +117,29 @@ pub struct OInterval {
     pub(crate) qual: IntervalQual,
 }
 
+pub mod err {
+    use super::{IntervalQual, OIntervalDeg};
+    use thiserror::Error;
+
+    #[derive(Debug, Error)]
+    #[error("Invalid match of quality and degree: {qual}{deg}.")]
+    pub struct InvalidOInterval {
+        pub deg: OIntervalDeg,
+        pub qual: IntervalQual,
+    }
+}
+
 impl OInterval {
     pub fn try_from_deg_and_qual(
         deg: OIntervalDeg,
         qual: IntervalQual,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> Result<Self, err::InvalidOInterval> {
         use IntervalQual::*;
         use OIntervalDeg::*;
         match (qual, deg) {
             (Major | Minor, Unison | Fourth | Fifth)
             | (Perfect, Second | Third | Sixth | Seventh) => {
-                bail!("{qual}{deg} is not a valid simple interval.")
+                Err(err::InvalidOInterval {deg, qual})
             }
             _ => Ok(OInterval { deg, qual }),
         }
@@ -227,7 +248,7 @@ impl From<OPitch> for Interval {
 
 impl From<OIntervalDeg> for OStep {
     fn from(value: OIntervalDeg) -> Self {
-        OStep::try_from(u8::try_from(value).unwrap()).unwrap()
+        OStep::try_from(value as u8).expect("`value` should be in `0..7`")
     }
 }
 

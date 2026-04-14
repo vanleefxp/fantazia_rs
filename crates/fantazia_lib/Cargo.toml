@@ -4,17 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-derive_more = { version = "2.0.1", features = [
-    "add",
-    "add_assign",
-    "from",
-    "into",
-    "not",
-    "sum",
-] }
+derive_more = { workspace = true }
 anyhow = "1.0.100"
 itertools = "0.14.0"
 malachite-base = "0.7.1"
+num-integer = { workspace = true }
 num_enum = "0.7.5"
 phf = { version = "0.13.1", features = ["macros", "uncased"] }
 uncased = "0.9.10"
@@ -25,11 +19,13 @@ syn = { version = "2.0.110", features = [
     "full",
     "extra-traits",
 ], optional = true }
-thiserror = "2.0.17"
+thiserror = { workspace = true }
+tinyvec = { version = "1.10.0", features = ["alloc"], optional = true }
+compact_str = { version = "0.9.0", optional = true }
 
 [features]
 default = ["pitch", "rhythm"]
 rkyv = ["dep:rkyv"]
 proc-macro-support = ["dep:quote", "dep:proc-macro2", "dep:syn"]
 pitch = []
-rhythm = []
+rhythm = ["dep:tinyvec", "dep:compact_str"]

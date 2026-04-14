@@ -2,7 +2,7 @@ use malachite_base::num::arithmetic::traits::{DivMod as _, Mod as _, ModMul as _
 
 use super::{
     OPitch, OStep,
-    traits::{Co5Order, FromCo5Order, PitchNotation as _},
+    traits::{Co5Order, FromCo5Order},
 };
 
 pub(crate) const CO5_ORDER: [i8; 7] = [0, 2, 4, -1, 1, 3, 5];

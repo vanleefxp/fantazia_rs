@@ -13,3 +13,23 @@ rkyv = ["fantazia_lib/rkyv"]
 proc-macro = ["dep:fantazia_proc-macro"]
 pitch = ["fantazia_lib/pitch"]
 rhythm = ["fantazia_lib/rhythm"]
+
+[workspace]
+members = ["crates/fantazia_lib", "crates/fantazia_proc-macro"]
+
+[workspace.dependencies]
+thiserror = "2.0.18"
+num-integer = "0.1.46"
+
+[workspace.dependencies.derive_more]
+version = "2.0.1"
+features = [
+    "add",
+    "add_assign",
+    "from",
+    "into",
+    "not",
+    "sum",
+    "deref",
+    "deref_mut",
+]

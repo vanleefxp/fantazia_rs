@@ -8,9 +8,10 @@ mod parsing;
 mod qual;
 mod repr;
 pub mod traits;
+pub mod utils;
 
 #[cfg(feature = "proc-macro-support")]
 mod tokenize;
 
-pub use base::{Acci, OPitch, OStep, Pitch, Step};
-pub use interval::{Interval, IntervalDeg, IntervalQual, OInterval, OIntervalDeg};
+pub use base::*;
+pub use interval::*;

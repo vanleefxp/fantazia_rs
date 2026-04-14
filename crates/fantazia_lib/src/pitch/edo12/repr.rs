@@ -4,7 +4,6 @@ use malachite_base::num::{arithmetic::traits::Abs, basic::traits::Zero as _};
 
 use super::base::{Acci, OPitch, OStep, Pitch, Step};
 use super::interval::{Interval, IntervalDeg, IntervalQual, OInterval, OIntervalDeg};
-use super::traits::PitchNotation;
 
 impl Display for OStep {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -14,7 +13,7 @@ impl Display for OStep {
 
 impl Display for Step {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let (ostep, octave) = self.into_ostep_and_octave();
+        let (ostep, octave) = self.ostep_and_octave();
         write!(f, "{}_{}", ostep, octave)
     }
 }
@@ -22,7 +21,7 @@ impl Display for Step {
 impl Display for Acci {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self.0 {
-            0 => write!(f, "[]"),
+            0 => write!(f, "="),
             n @ 0..=3 => {
                 for _ in 0..n {
                     write!(f, "+")?;
@@ -35,8 +34,7 @@ impl Display for Acci {
                 }
                 Ok(())
             }
-            n if n > 0 => write!(f, "[{n:+}]"),
-            n => write!(f, "[{n}]"),
+            n=> write!(f, "[{n:+}]"),
         }
     }
 }
@@ -97,7 +95,7 @@ impl Display for OInterval {
 
 impl Display for Pitch {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let (opitch, octave) = self.into_opitch_and_octave();
+        let (opitch, octave) = self.opitch_and_octave();
         write!(f, "{}_{}", opitch, octave)
     }
 }
