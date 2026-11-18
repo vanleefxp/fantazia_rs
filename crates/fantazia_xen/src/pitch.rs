@@ -328,11 +328,20 @@ const impl<S> AnyPeriodicPitch<S>
 where
     S: [const] Eq + [const] Destruct,
 {
+    /// Adds two pitches, assuming they are in the same scale.
+    ///
+    /// # Safety
+    /// Caller must ensure that both pitches are in the same scale.
     pub unsafe fn add_unchecked(mut self, rhs: Self) -> Self {
         debug_assert!(self.scale == rhs.scale);
         self.inner += rhs.inner;
         self
     }
+
+    /// Subtracts another pitch from `self`, assuming they are in the same scale.
+    ///
+    /// # Safety
+    /// Caller must ensure that both pitches are in the same scale.
     pub unsafe fn sub_unchecked(mut self, rhs: Self) -> Self {
         debug_assert!(self.scale == rhs.scale);
         self.inner -= rhs.inner;

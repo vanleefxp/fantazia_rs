@@ -154,6 +154,11 @@ pub const trait PeriodicScaleTrait {
         }
     }
 
+    /// Creates an octave-unspecific pitch without checking the step.
+    ///
+    /// # Safety
+    /// Caller must ensure that `step` is a valid nominal step of the scale, i.e.
+    /// `step < self.n_steps()`.
     unsafe fn new_general_pitch_unchecked(
         &self,
         step: u8,
