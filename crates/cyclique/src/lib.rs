@@ -20,6 +20,20 @@
 //! type. The right-hand integer is interpreted as an integer and reduced
 //! modulo the divisor before the operation, so `1 - 2` on a modulus type with
 //! divisor `10` is the class of `9` and `3 * -1` is the class of `7`.
+//!
+//! # Optional serialization support
+//!
+//! The `serde` feature implements `serde::Serialize` and `serde::Deserialize`
+//! for every type declared by [`new_modulus_type!`]. The `rkyv` feature
+//! implements `rkyv::Archive`, `rkyv::Serialize` and `rkyv::Deserialize` for
+//! the same types.
+//!
+//! In both cases the value is stored as its underlying representation integer,
+//! including for enum declarations, and deserialization rejects values outside
+//! the modulus. A modulus type with a divisor of one is zero-sized and
+//! serializes as the integer zero. Because pattern types do not implement
+//! these traits, the implementations are generated manually rather than
+//! derived.
 
 use std::{
     fmt,
@@ -33,6 +47,45 @@ pub use cyclique_macro::{Debug, new_modulus_type};
 #[doc(hidden)]
 pub mod __private {
     pub use core;
+
+    /// Re-export used by the generated code when the `serde` feature is enabled.
+    #[cfg(feature = "serde")]
+    pub use serde;
+
+    /// Re-export used by the generated code when the `rkyv` feature is enabled.
+    #[cfg(feature = "rkyv")]
+    pub use rkyv;
+
+    /// Error returned when a serialized value is not a valid residue of its
+    /// modulus type.
+    #[cfg(feature = "rkyv")]
+    #[derive(Debug)]
+    pub struct ResidueOutOfRange {
+        type_name: &'static str,
+    }
+
+    #[cfg(feature = "rkyv")]
+    impl ResidueOutOfRange {
+        /// Creates a new error for the named modulus type.
+        #[inline(always)]
+        pub const fn new(type_name: &'static str) -> Self {
+            Self { type_name }
+        }
+    }
+
+    #[cfg(feature = "rkyv")]
+    impl std::fmt::Display for ResidueOutOfRange {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(
+                f,
+                "value out of range for modulus type `{}`",
+                self.type_name
+            )
+        }
+    }
+
+    #[cfg(feature = "rkyv")]
+    impl std::error::Error for ResidueOutOfRange {}
 
     /// Multiply two 128-bit integers into a full 256-bit product.
     ///

@@ -497,3 +497,129 @@ fn test_from_reduces() {
         20_000_000_000_000_000_000u128 % 18_446_744_073_709_551_617u128
     });
 }
+
+#[cfg(feature = "serde")]
+mod serde_support {
+    use super::*;
+
+    #[test]
+    fn serde_round_trip_for_pattern_type() {
+        assert_eq!(serde_json::to_string(&SmallNums::_9).unwrap(), "9");
+        assert_eq!(
+            serde_json::from_str::<SmallNums>("9").unwrap(),
+            SmallNums::_9
+        );
+        assert!(serde_json::from_str::<SmallNums>("10").is_err());
+    }
+
+    #[test]
+    fn serde_round_trip_for_boundary_type() {
+        let value = Exact::new(255);
+        assert_eq!(serde_json::to_string(&value).unwrap(), "255");
+        assert_eq!(serde_json::from_str::<Exact>("255").unwrap(), value);
+    }
+
+    #[test]
+    fn serde_round_trip_for_enum() {
+        assert_eq!(serde_json::to_string(&DayOfWeek::Friday).unwrap(), "5");
+        assert_eq!(
+            serde_json::from_str::<DayOfWeek>("5").unwrap(),
+            DayOfWeek::Friday
+        );
+        assert!(serde_json::from_str::<DayOfWeek>("7").is_err());
+    }
+
+    #[test]
+    fn serde_round_trip_for_zero_sized_type() {
+        assert_eq!(serde_json::to_string(&Trivial).unwrap(), "0");
+        assert_eq!(serde_json::from_str::<Trivial>("0").unwrap(), Trivial);
+        assert_eq!(serde_json::from_str::<Trivial>("1").unwrap(), Trivial);
+    }
+
+    #[test]
+    fn serde_round_trip_for_wide_types() {
+        let value = Greater::from(399u16);
+        assert_eq!(serde_json::to_string(&value).unwrap(), "399");
+        assert_eq!(serde_json::from_str::<Greater>("399").unwrap(), value);
+        assert!(serde_json::from_str::<Greater>("400").is_err());
+
+        let value = BigOdd::from(123u128);
+        assert_eq!(serde_json::to_string(&value).unwrap(), "123");
+        assert_eq!(serde_json::from_str::<BigOdd>("123").unwrap(), value);
+
+        let value = Boundary64::new(u64::MAX);
+        assert_eq!(
+            serde_json::from_str::<Boundary64>(&value.to_string()).unwrap(),
+            value
+        );
+    }
+}
+
+#[cfg(feature = "rkyv")]
+mod rkyv_support {
+    use super::*;
+    use rkyv::{from_bytes, rancor::Error, to_bytes};
+
+    #[test]
+    fn rkyv_round_trip_for_pattern_type() {
+        let bytes = to_bytes::<Error>(&SmallNums::_9).unwrap();
+        let value: SmallNums = from_bytes::<SmallNums, Error>(&bytes).unwrap();
+        assert_eq!(value, SmallNums::_9);
+    }
+
+    #[test]
+    fn rkyv_rejects_out_of_range_residue() {
+        let bytes = to_bytes::<Error>(&10u8).unwrap();
+        assert!(from_bytes::<SmallNums, Error>(&bytes).is_err());
+
+        let bytes = to_bytes::<Error>(&7u8).unwrap();
+        assert!(from_bytes::<DayOfWeek, Error>(&bytes).is_err());
+    }
+
+    #[test]
+    fn rkyv_round_trip_for_boundary_type() {
+        let value = Exact::new(255);
+        let bytes = to_bytes::<Error>(&value).unwrap();
+        let value: Exact = from_bytes::<Exact, Error>(&bytes).unwrap();
+        assert_eq!(value, Exact::new(255));
+    }
+
+    #[test]
+    fn rkyv_round_trip_for_enum() {
+        let bytes = to_bytes::<Error>(&DayOfWeek::Friday).unwrap();
+        let value: DayOfWeek = from_bytes::<DayOfWeek, Error>(&bytes).unwrap();
+        assert_eq!(value, DayOfWeek::Friday);
+    }
+
+    #[test]
+    fn rkyv_round_trip_for_zero_sized_type() {
+        let value = Trivial;
+        let bytes = to_bytes::<Error>(&value).unwrap();
+        let value: Trivial = from_bytes::<Trivial, Error>(&bytes).unwrap();
+        assert_eq!(value, Trivial);
+    }
+
+    #[test]
+    fn rkyv_round_trip_for_wide_types() {
+        let value = Greater::from(399u16);
+        let bytes = to_bytes::<Error>(&value).unwrap();
+        let value: Greater = from_bytes::<Greater, Error>(&bytes).unwrap();
+        assert_eq!(value, Greater::from(399u16));
+
+        let value = BigOdd::from(123u128);
+        let bytes = to_bytes::<Error>(&value).unwrap();
+        let value: BigOdd = from_bytes::<BigOdd, Error>(&bytes).unwrap();
+        assert_eq!(value, BigOdd::from(123u128));
+
+        let value = Boundary64::new(u64::MAX);
+        let bytes = to_bytes::<Error>(&value).unwrap();
+        let value: Boundary64 = from_bytes::<Boundary64, Error>(&bytes).unwrap();
+        assert_eq!(value, Boundary64::new(u64::MAX));
+    }
+
+    #[test]
+    fn rkyv_rejects_out_of_range_wide_residue() {
+        let bytes = to_bytes::<Error>(&400u16).unwrap();
+        assert!(from_bytes::<Greater, Error>(&bytes).is_err());
+    }
+}

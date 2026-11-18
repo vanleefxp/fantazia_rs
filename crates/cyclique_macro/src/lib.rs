@@ -11,6 +11,10 @@
 
 mod expand;
 mod repr;
+#[cfg(feature = "rkyv")]
+mod rkyv_support;
+#[cfg(feature = "serde")]
+mod serde_support;
 mod utils;
 
 use proc_macro::{self as pm};
@@ -316,6 +320,11 @@ impl ToTokens for ModulusType {
         }
 
         expand_ops_impls(tokens, type_name, divisor);
+
+        #[cfg(feature = "serde")]
+        serde_support::expand_serde_impls(tokens, type_name, divisor);
+        #[cfg(feature = "rkyv")]
+        rkyv_support::expand_rkyv_impls(tokens, type_name, divisor);
     }
 }
 
@@ -327,6 +336,12 @@ impl ToTokens for ModulusTypeDecls {
     }
 }
 
+/// Declares one or more congruence-class types.
+///
+/// When the `serde` or `rkyv` feature of `cyclique` is enabled, each generated
+/// type also implements the corresponding serialization traits. The value is
+/// stored as its representation integer, and deserialization rejects residues
+/// outside the modulus.
 #[proc_macro]
 pub fn new_modulus_type(input: pm::TokenStream) -> pm::TokenStream {
     let input = parse_macro_input!(input as ModulusTypeDecls);
