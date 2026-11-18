@@ -1,0 +1,15 @@
+[package]
+name = "fantazia_edo12_macro"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+fantazia_edo12 = { workspace = true, features = ["macro"] }
+syn.workspace = true
+quote.workspace = true
+proc-macro2.workspace = true

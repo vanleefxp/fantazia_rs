@@ -1,0 +1,19 @@
+[package]
+name = "fantazia_xen"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+typed_floats.workspace = true
+paste.workspace = true
+derive_more.workspace = true
+generativity.workspace = true
+
+fantazia_core.workspace = true
+fantazia_edo12 = { workspace = true, default_features = false, features = ["step"] }
+
+[features]
+default = ["edo12"]
+edo12 = ["fantazia_edo12/pitch"]

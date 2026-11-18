@@ -1,7 +1,8 @@
-#[cfg(feature = "pitch")]
-pub mod pitch;
+//! # `fantazia`: semantic music computation package
 
-#[cfg(feature = "rhythm")]
-pub mod rhythm;
+pub use fantazia_core::*;
 
-pub use fantazia_lib::traits;
+#[cfg(feature = "edo12")]
+pub mod edo12 {
+    pub use fantazia_edo12::*;
+}

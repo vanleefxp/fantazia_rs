@@ -1,0 +1,10 @@
+[package]
+name = "cyclique"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+cyclique_macro.workspace = true
+paste.workspace = true

@@ -1,0 +1,36 @@
+[package]
+name = "fantazia_edo12"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+fantazia_core.workspace = true
+fantazia_internal-macro = { workspace = true, features = ["edo12"] }
+
+derive_more.workspace = true
+thiserror.workspace = true
+typed_floats.workspace = true
+num_enum.workspace = true
+serde = { workspace = true, features = ["derive"], optional = true }
+rkyv = { workspace = true, optional = true }
+paste.workspace = true
+phf.workspace = true
+uncased.workspace = true
+enum-ordinalize.workspace = true
+
+proc-macro2 = { workspace = true, optional = true }
+syn = { workspace = true, optional = true }
+quote = { workspace = true, optional = true }
+
+
+[features]
+default = ["step", "tone", "pitch", "interval", "acci-pref"]
+serde = ["dep:serde", "fantazia_core/serde"]
+rkyv = ["dep:rkyv", "fantazia_core/rkyv"]
+step = []
+tone = []
+acci = []
+pitch = ["step", "tone", "acci"]
+interval = ["pitch"]
+acci-pref = ["pitch"]
+macro = ["dep:proc-macro2", "dep:syn", "dep:quote", "fantazia_core/macro"]

@@ -1,35 +1,72 @@
 [package]
 name = "fantazia"
+description = "A library for semantic music computation."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
+authors = ["F.X.P. <litran39@hotmail.com>"]
+license = "MIT"
 
 [dependencies]
-fantazia_proc-macro = { path = "./crates/fantazia_proc-macro", optional = true }
-fantazia_lib = { path = "./crates/fantazia_lib" }
+fantazia_core.workspace = true
+fantazia_edo12 = { workspace = true, optional = true }
+fantazia_edo12_macro = { workspace = true, optional = true }
 
 [features]
-default = ["pitch", "rhythm"]
-rkyv = ["fantazia_lib/rkyv"]
-proc-macro = ["dep:fantazia_proc-macro"]
-pitch = ["fantazia_lib/pitch"]
-rhythm = ["fantazia_lib/rhythm"]
+default = ["edo12", "macro"]
+edo12 = ["dep:fantazia_edo12"]
+serde = ["fantazia_core/serde", "fantazia_edo12/serde"]
+rkyv = ["fantazia_core/rkyv", "fantazia_edo12/rkyv"]
+macro = ["dep:fantazia_edo12_macro", "fantazia_edo12/macro"]
 
 [workspace]
-members = ["crates/fantazia_lib", "crates/fantazia_proc-macro"]
+members = [
+    "crates/fantazia_core",
+    "crates/fantazia_edo12", "crates/fantazia_edo12_macro",
+    "crates/fantazia_internal-macro",
+    "crates/fantazia_synth",
+    "crates/fantazia_utils",
+    "crates/fantazia_xen",
+    "crates/cyclique_macro", "crates/cyclique",
+    # "crates/flagset",
+]
 
 [workspace.dependencies]
+fantazia_internal-macro = { path = "crates/fantazia_internal-macro" }
+fantazia_core = { path = "crates/fantazia_core" }
+fantazia_edo12 = { path = "crates/fantazia_edo12" }
+fantazia_edo12_macro = { path = "crates/fantazia_edo12_macro" }
+
+cyclique = { path = "crates/cyclique" }
+cyclique_macro = { path = "crates/cyclique_macro" }
+
 thiserror = "2.0.18"
 num-integer = "0.1.46"
+serde = "1.0.229"
+rkyv = "0.8.18"
+num_enum = "0.7.6"
+malachite-base = "0.10.0"
+phf = { version = "0.14.0", features = ["macros", "uncased"] }
+uncased = "0.9.10"
+# flagset = { path = "crates/flagset" }
+enum-ordinalize = "4.4.2"
+generativity = "1.2.1"
+
+paste = "1.0.15"
+syn = "3.0.3"
+quote = "1.0.47"
+proc-macro2 = "1.0.107"
+
+[workspace.dependencies.typed_floats]
+git = "https://github.com/vanleefxp/typed_floats_fork.git"
+rev = "c89cd9fbdc8c57e5e2061a2e5b36d1e42d907b1f"
 
 [workspace.dependencies.derive_more]
-version = "2.0.1"
-features = [
-    "add",
-    "add_assign",
-    "from",
-    "into",
-    "not",
-    "sum",
-    "deref",
-    "deref_mut",
-]
+git = "https://github.com/vanleefxp/derive-more_fork.git"
+rev = "03353228faf876d16471deb4c5a2b4a8eacda773"
+features = ["full"]
