@@ -1,10 +1,16 @@
-//! Converting tones to named pitches by accidental preference option.
+//! Mapping chromatic tones to named pitches by accidental preference.
+//!
+//! Twelve semitones per octave mean that five tones of the chromatic scale can be spelled either
+//! with a sharp or with a flat. [`AcciPref`] records, for each of the five black keys, which of the
+//! two spellings should be chosen, and [`BlackKey`] enumerates those keys.
 //!
 //! This module provides:
-//! - the [`AcciPref`] type which allows you to specify how each black key is
-//! represented as a named pitch by default.
-//! - [`OTone::to_opitch`] and [`OTone::to_opitch_in_key`] methods for [`OTone`].
-//! - [`Tone::to_pitch`] and [`Tone::to_pitch_in_key`] methods for [`Tone`].
+//!
+//! - the [`AcciPref`] type which allows you to specify how each black key is represented as a
+//!   named pitch by default;
+//! - the [`BlackKey`] type which enumerates the five black keys of an octave;
+//! - [`OTone::to_opitch`] and [`OTone::to_opitch_in_key`] for [`OTone`];
+//! - [`Tone::to_pitch`] and [`Tone::to_pitch_in_key`] for [`Tone`].
 
 use std::{
     fmt::{Debug, Display, Write},
@@ -89,7 +95,7 @@ const impl TryFrom<OTone> for BlackKey {
             if *CLOSEST_LOWER_WHITE_TONE.get_unchecked(value as usize) == value as i8 {
                 Err(())
             } else {
-                Ok(mem::transmute(
+                Ok(mem::transmute::<i8, BlackKey>(
                     *KEY_IDX_OF_COLOR.get_unchecked(value as usize),
                 ))
             }
@@ -113,10 +119,9 @@ pub struct AcciPref(
     pattern_type!(u8 is ..32),
 );
 
-#[cfg(any(feature = "serde", feature = "rkyv"))]
+#[cfg(feature = "serde")]
 mod serialize_helper {
-    #[cfg_attr(feature = "rkyv", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "rkyv", derive(rkyv::Portable))]
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[repr(transparent)]
     pub struct AcciPref(u8);
 
@@ -247,32 +252,52 @@ pub enum InvalidAcciPref {
 
 const impl FromStr for AcciPref {
     type Err = InvalidAcciPref;
+
+    /// Parses an [`AcciPref`] from five accidental characters, in black-key order (C♯/D♭, D♯/E♭,
+    /// F♯/G♭, G♯/A♭, A♯/B♭).
+    ///
+    /// Each `+` selects the sharp spelling of the corresponding black key and each `-` the flat
+    /// spelling. The characters `,`, ` ` and `_` are ignored, so e.g. `"+-+-+"` and `"+ - + - +"`
+    /// are equivalent.
+    ///
+    /// ```
+    /// use fantazia_edo12::acci_pref::AcciPref;
+    ///
+    /// assert_eq!("+++++".parse::<AcciPref>().ok(), Some(AcciPref::ALL_SHARP));
+    /// assert_eq!("-----".parse::<AcciPref>().ok(), Some(AcciPref::ALL_FLAT));
+    /// assert_eq!(
+    ///     "--+--".parse::<AcciPref>().ok(),
+    ///     Some(AcciPref::ALL_FLAT.with_f_sharp()),
+    /// );
+    /// assert_eq!("+-+-+".parse::<AcciPref>().unwrap().to_string(), "+-+-+");
+    /// assert_eq!("+++ ++".parse::<AcciPref>().ok(), Some(AcciPref::ALL_SHARP));
+    /// assert!("++++".parse::<AcciPref>().is_err());
+    /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut result = 0u8;
-        let len = s.len();
-        let mut i = 0usize;
         let mut black_idx = 0usize;
-        while i < len {
-            // SAFETY: `i < len`
-            match unsafe { *s.as_bytes().get_unchecked(i) } {
+        let bytes = s.as_bytes();
+        let mut i = 0usize;
+        while i < bytes.len() {
+            match bytes[i] {
                 b'_' | b',' | b' ' => (),
                 ch @ (b'+' | b'-') => {
+                    if black_idx == BlackKey::VARIANT_COUNT {
+                        return Err(InvalidAcciPref::TooManyAccis);
+                    }
                     if ch == b'-' {
                         result |= 1 << black_idx;
                     }
                     black_idx += 1;
-                    if black_idx > BlackKey::VARIANT_COUNT {
-                        return Err(InvalidAcciPref::TooManyAccis);
-                    }
                 }
                 ch => return Err(InvalidAcciPref::InvalidChar(ch as char)),
             }
             i += 1;
         }
-        if i != 4 {
+        if black_idx != BlackKey::VARIANT_COUNT {
             return Err(InvalidAcciPref::TooFewAccis);
         }
-        // SAFETY: result is `0..32`
+        // SAFETY: `result` is in `0..32`
         unsafe { Ok(AcciPref::new_unchecked(result)) }
     }
 }
@@ -334,66 +359,425 @@ impl ToTokens for AcciPref {
 
 #[cfg(test)]
 mod tests {
+    use fantazia_core::pitch::SpecificPitch;
+
     use super::*;
-    use crate::tone::otone;
+
+    const BLACK_KEYS: [BlackKey; 5] = [
+        BlackKey::C_SHARP,
+        BlackKey::D_SHARP,
+        BlackKey::F_SHARP,
+        BlackKey::G_SHARP,
+        BlackKey::A_SHARP,
+    ];
+
+    const WHITE_TONES: [OTone; 7] = [
+        OTone::C,
+        OTone::D,
+        OTone::E,
+        OTone::F,
+        OTone::G,
+        OTone::A,
+        OTone::B,
+    ];
 
     #[test]
     fn test_niche_opt() {
-        let s1 = dbg!(size_of::<u8>());
-        let s2 = dbg!(size_of::<Option<u8>>());
-        assert!(s2 > s1);
-
-        let s1 = dbg!(size_of::<AcciPref>());
-        let s2 = dbg!(size_of::<Option<AcciPref>>());
-        assert_eq!(s1, s2);
+        // `AcciPref` uses pattern types to restrict its value to `0..32`, so `Option<AcciPref>`
+        // has the same layout as `AcciPref`.
+        assert!(size_of::<Option<u8>>() > size_of::<u8>());
+        assert_eq!(size_of::<AcciPref>(), size_of::<Option<AcciPref>>());
 
         assert_eq!(AcciPref::ALL_FLAT, AcciPref::ALL_FLAT);
         assert_eq!(Some(AcciPref::ALL_FLAT), Some(AcciPref::ALL_FLAT));
         assert_eq!(AcciPref::ALL_SHARP, AcciPref::ALL_SHARP);
         assert_eq!(Some(AcciPref::ALL_SHARP), Some(AcciPref::ALL_SHARP));
+        assert_ne!(AcciPref::ALL_SHARP, AcciPref::ALL_FLAT);
     }
 
     #[test]
-    fn test_acci_pref_display() {
-        let acci_pref = AcciPref::ALL_FLAT.with_f_sharp();
-        assert_eq!(dbg!(acci_pref).to_string(), "--+--");
-        let acci_pref = AcciPref::ALL_SHARP.with_b_flat();
-        assert_eq!(dbg!(acci_pref).to_string(), "++++-");
+    fn test_default_and_constants() {
+        assert_eq!(AcciPref::new(), AcciPref::ALL_SHARP);
+        assert_eq!(AcciPref::default(), AcciPref::ALL_SHARP);
+        assert_eq!(AcciPref::ALL_SHARP.to_string(), "+++++");
+        assert_eq!(AcciPref::ALL_FLAT.to_string(), "-----");
+
+        for key in BLACK_KEYS {
+            assert!(AcciPref::ALL_SHARP.is_sharp(key));
+            assert!(!AcciPref::ALL_SHARP.is_flat(key));
+            assert!(AcciPref::ALL_FLAT.is_flat(key));
+            assert!(!AcciPref::ALL_FLAT.is_sharp(key));
+        }
+
+        assert_eq!(AcciPref::ALL_FLAT.with_f_sharp().to_string(), "--+--");
+        assert_eq!(AcciPref::ALL_SHARP.with_b_flat().to_string(), "++++-");
+        assert!(AcciPref::ALL_FLAT.with_f_sharp().f_sharp());
+        assert!(AcciPref::ALL_SHARP.with_b_flat().b_flat());
+        assert!(!AcciPref::ALL_SHARP.with_b_flat().a_sharp());
+    }
+
+    #[test]
+    fn test_set_and_clear() {
+        let pref = AcciPref::ALL_SHARP
+            .with_flat(BlackKey::C_SHARP)
+            .with_flat(BlackKey::A_SHARP);
+        assert_eq!(pref.to_string(), "-+++-");
+        assert!(pref.is_flat(BlackKey::C_SHARP));
+        assert!(pref.is_flat(BlackKey::A_SHARP));
+        assert!(pref.is_sharp(BlackKey::D_SHARP));
+
+        let pref = pref
+            .with_sharp(BlackKey::C_SHARP)
+            .with_sharp(BlackKey::A_SHARP);
+        assert_eq!(pref, AcciPref::ALL_SHARP);
+
+        // `with` selects the requested spelling.
+        assert_eq!(
+            AcciPref::ALL_SHARP
+                .with(BlackKey::F_SHARP, true)
+                .to_string(),
+            "++-++"
+        );
+        assert_eq!(
+            AcciPref::ALL_FLAT
+                .with(BlackKey::F_SHARP, false)
+                .to_string(),
+            "--+--"
+        );
+    }
+
+    #[test]
+    fn test_generated_per_key_methods() {
+        let pref = AcciPref::ALL_FLAT;
+        assert!(!pref.c_sharp());
+        assert!(pref.d_flat());
+        assert!(!pref.d_sharp());
+        assert!(pref.e_flat());
+        assert!(!pref.f_sharp());
+        assert!(pref.g_flat());
+        assert!(!pref.g_sharp());
+        assert!(pref.a_flat());
+        assert!(!pref.a_sharp());
+        assert!(pref.b_flat());
+
+        let pref = AcciPref::ALL_SHARP;
+        assert!(pref.c_sharp());
+        assert!(!pref.d_flat());
+        assert!(pref.d_sharp());
+        assert!(!pref.e_flat());
+        assert!(pref.f_sharp());
+        assert!(!pref.g_flat());
+        assert!(pref.g_sharp());
+        assert!(!pref.a_flat());
+        assert!(pref.a_sharp());
+        assert!(!pref.b_flat());
+
+        assert_eq!(AcciPref::ALL_SHARP.with_c_sharp(), AcciPref::ALL_SHARP);
+        assert_eq!(AcciPref::ALL_SHARP.with_c_sharp().to_string(), "+++++");
+        assert_eq!(AcciPref::ALL_SHARP.with_d_flat().to_string(), "-++++");
+        assert_eq!(AcciPref::ALL_SHARP.with_f_sharp().to_string(), "+++++");
+        assert_eq!(AcciPref::ALL_SHARP.with_b_flat().to_string(), "++++-");
+    }
+
+    #[test]
+    fn test_display_and_parse_roundtrip() {
+        // Every one of the 32 preferences round-trips through its display representation.
+        for bits in 0u8..32 {
+            let mut pref = AcciPref::ALL_SHARP;
+            for (i, key) in BLACK_KEYS.into_iter().enumerate() {
+                if bits & (1 << i) != 0 {
+                    pref = pref.with_flat(key);
+                }
+            }
+            let src = pref.to_string();
+            assert_eq!(src.len(), 5);
+            assert_eq!(src.parse::<AcciPref>().unwrap(), pref, "`{src}`");
+        }
+    }
+
+    #[test]
+    fn test_parse_delimiters() {
+        assert_eq!("+++++".parse::<AcciPref>().unwrap(), AcciPref::ALL_SHARP);
+        assert_eq!("-----".parse::<AcciPref>().unwrap(), AcciPref::ALL_FLAT);
+        assert_eq!("+++ ++".parse::<AcciPref>().unwrap(), AcciPref::ALL_SHARP);
+        assert_eq!("++_+++".parse::<AcciPref>().unwrap(), AcciPref::ALL_SHARP);
+        assert_eq!("+++,++".parse::<AcciPref>().unwrap(), AcciPref::ALL_SHARP);
+        assert_eq!("+-+-+".parse::<AcciPref>().unwrap().to_string(), "+-+-+");
+        assert_eq!(
+            "+ - + - +".parse::<AcciPref>().unwrap().to_string(),
+            "+-+-+"
+        );
+    }
+
+    #[test]
+    fn test_parse_errors() {
+        assert!(matches!(
+            "".parse::<AcciPref>(),
+            Err(InvalidAcciPref::TooFewAccis)
+        ));
+        assert!(matches!(
+            "++++".parse::<AcciPref>(),
+            Err(InvalidAcciPref::TooFewAccis)
+        ));
+        assert!(matches!(
+            "++++++".parse::<AcciPref>(),
+            Err(InvalidAcciPref::TooManyAccis)
+        ));
+        assert!(matches!(
+            "+++ +++".parse::<AcciPref>(),
+            Err(InvalidAcciPref::TooManyAccis)
+        ));
+        assert!(matches!(
+            "++x++".parse::<AcciPref>(),
+            Err(InvalidAcciPref::InvalidChar('x'))
+        ));
+        assert_eq!(
+            "++++".parse::<AcciPref>().unwrap_err().to_string(),
+            "too few accidentals (expect 5)"
+        );
+        assert_eq!(
+            "++++++".parse::<AcciPref>().unwrap_err().to_string(),
+            "too many accidentals (expect 5)"
+        );
+    }
+
+    #[test]
+    fn test_black_key_relations() {
+        assert_eq!(BlackKey::C_SHARP, BlackKey::CSharpDFlat);
+        assert_eq!(BlackKey::D_FLAT, BlackKey::CSharpDFlat);
+        assert_eq!(BlackKey::D_SHARP, BlackKey::DSharpEFlat);
+        assert_eq!(BlackKey::F_SHARP, BlackKey::FSharpGFlat);
+        assert_eq!(BlackKey::G_SHARP, BlackKey::GSharpAFlat);
+        assert_eq!(BlackKey::A_SHARP, BlackKey::ASharpBFlat);
+        assert_eq!(format!("{:?}", BlackKey::F_SHARP), "FSharpGFlat");
+
+        let expected = [
+            (
+                BlackKey::C_SHARP,
+                OStep::C,
+                OStep::D,
+                OTone::C_SHARP,
+                OPitch::C_SHARP,
+                OPitch::D_FLAT,
+            ),
+            (
+                BlackKey::D_SHARP,
+                OStep::D,
+                OStep::E,
+                OTone::D_SHARP,
+                OPitch::D_SHARP,
+                OPitch::E_FLAT,
+            ),
+            (
+                BlackKey::F_SHARP,
+                OStep::F,
+                OStep::G,
+                OTone::F_SHARP,
+                OPitch::F_SHARP,
+                OPitch::G_FLAT,
+            ),
+            (
+                BlackKey::G_SHARP,
+                OStep::G,
+                OStep::A,
+                OTone::G_SHARP,
+                OPitch::G_SHARP,
+                OPitch::A_FLAT,
+            ),
+            (
+                BlackKey::A_SHARP,
+                OStep::A,
+                OStep::B,
+                OTone::A_SHARP,
+                OPitch::A_SHARP,
+                OPitch::B_FLAT,
+            ),
+        ];
+        for (key, lower, upper, tone, sharp, flat) in expected {
+            assert_eq!(key.lower_step(), lower);
+            assert_eq!(key.upper_step(), upper);
+            assert_eq!(OTone::from(key), tone);
+            assert_eq!(BlackKey::try_from(tone), Ok(key));
+            assert_eq!(key.to_opitch_sharp(), sharp);
+            assert_eq!(key.to_opitch_flat(), flat);
+            assert_eq!(key.to_opitch(false), sharp);
+            assert_eq!(key.to_opitch(true), flat);
+        }
+
+        for tone in WHITE_TONES {
+            assert!(BlackKey::try_from(tone).is_err());
+        }
     }
 
     #[test]
     fn test_otone_conversion() {
-        let test_data = vec![
-            (otone(1), AcciPref::ALL_SHARP, OPitch::C_SHARP),
-            (otone(1), AcciPref::ALL_FLAT, OPitch::D_FLAT),
-            (otone(3), AcciPref::ALL_SHARP, OPitch::D_SHARP),
-            (otone(3), AcciPref::ALL_FLAT, OPitch::E_FLAT),
-            (otone(6), AcciPref::ALL_SHARP, OPitch::F_SHARP),
-            (otone(6), AcciPref::ALL_FLAT, OPitch::G_FLAT),
-            (otone(8), AcciPref::ALL_SHARP, OPitch::G_SHARP),
-            (otone(8), AcciPref::ALL_FLAT, OPitch::A_FLAT),
-            (otone(10), AcciPref::ALL_SHARP, OPitch::A_SHARP),
-            (otone(10), AcciPref::ALL_FLAT, OPitch::B_FLAT),
+        let sharp = [
+            OPitch::C,
+            OPitch::C_SHARP,
+            OPitch::D,
+            OPitch::D_SHARP,
+            OPitch::E,
+            OPitch::F,
+            OPitch::F_SHARP,
+            OPitch::G,
+            OPitch::G_SHARP,
+            OPitch::A,
+            OPitch::A_SHARP,
+            OPitch::B,
         ];
-        let keys = vec![OPitch::F, OPitch::G, OPitch::E];
+        let flat = [
+            OPitch::C,
+            OPitch::D_FLAT,
+            OPitch::D,
+            OPitch::E_FLAT,
+            OPitch::E,
+            OPitch::F,
+            OPitch::G_FLAT,
+            OPitch::G,
+            OPitch::A_FLAT,
+            OPitch::A,
+            OPitch::B_FLAT,
+            OPitch::B,
+        ];
 
-        println!("Without key:");
-        for &(tone, acci_pref, result) in test_data.iter() {
-            println!("{tone} ({acci_pref}) -> {result}");
-            assert_eq!(tone.to_opitch(acci_pref), result);
+        for tone_value in 0..12i8 {
+            let tone = OTone::new(tone_value).unwrap();
+            let expected_sharp = sharp[tone_value as usize];
+            let expected_flat = flat[tone_value as usize];
+            assert_eq!(tone.to_opitch(AcciPref::ALL_SHARP), expected_sharp);
+            assert_eq!(tone.to_opitch(AcciPref::ALL_FLAT), expected_flat);
         }
-        println!();
 
-        for tonic in keys.iter().copied() {
-            println!("In {tonic} major:");
-            for &(tone, acci_pref, correct_result) in test_data.iter() {
-                let tone = tone + tonic.tone.generalize();
-                let correct_result = correct_result + tonic;
-                let result = tone.to_opitch_in_key(tonic, acci_pref);
-                println!("{tone} ({acci_pref}) -> {result}");
-                assert_eq!(result, correct_result);
+        // A mixed preference picks the configured spelling per black key.
+        let pref = AcciPref::ALL_FLAT.with_c_sharp().with_f_sharp();
+        assert_eq!(OTone::C_SHARP.to_opitch(pref), OPitch::C_SHARP);
+        assert_eq!(OTone::F_SHARP.to_opitch(pref), OPitch::F_SHARP);
+        assert_eq!(OTone::G_SHARP.to_opitch(pref), OPitch::A_FLAT);
+        assert_eq!(OTone::A_SHARP.to_opitch(pref), OPitch::B_FLAT);
+    }
+
+    #[test]
+    fn test_otone_to_opitch_in_key() {
+        // (tonic, accidental preference, the seven degrees of the major scale)
+        let keys: [(OPitch, AcciPref, [&str; 7]); 13] = [
+            (
+                OPitch::C,
+                AcciPref::ALL_SHARP,
+                ["C", "D", "E", "F", "G", "A", "B"],
+            ),
+            (
+                OPitch::G,
+                AcciPref::ALL_SHARP,
+                ["G", "A", "B", "C", "D", "E", "F+"],
+            ),
+            (
+                OPitch::D,
+                AcciPref::ALL_SHARP,
+                ["D", "E", "F+", "G", "A", "B", "C+"],
+            ),
+            (
+                OPitch::A,
+                AcciPref::ALL_SHARP,
+                ["A", "B", "C+", "D", "E", "F+", "G+"],
+            ),
+            (
+                OPitch::E,
+                AcciPref::ALL_SHARP,
+                ["E", "F+", "G+", "A", "B", "C+", "D+"],
+            ),
+            (
+                OPitch::B,
+                AcciPref::ALL_SHARP,
+                ["B", "C+", "D+", "E", "F+", "G+", "A+"],
+            ),
+            (
+                OPitch::C_SHARP,
+                AcciPref::ALL_SHARP,
+                ["C+", "D+", "E+", "F+", "G+", "A+", "B+"],
+            ),
+            (
+                OPitch::F,
+                AcciPref::ALL_FLAT,
+                ["F", "G", "A", "B-", "C", "D", "E"],
+            ),
+            (
+                OPitch::B_FLAT,
+                AcciPref::ALL_FLAT,
+                ["B-", "C", "D", "E-", "F", "G", "A"],
+            ),
+            (
+                OPitch::E_FLAT,
+                AcciPref::ALL_FLAT,
+                ["E-", "F", "G", "A-", "B-", "C", "D"],
+            ),
+            (
+                OPitch::A_FLAT,
+                AcciPref::ALL_FLAT,
+                ["A-", "B-", "C", "D-", "E-", "F", "G"],
+            ),
+            (
+                OPitch::D_FLAT,
+                AcciPref::ALL_FLAT,
+                ["D-", "E-", "F", "G-", "A-", "B-", "C"],
+            ),
+            (
+                OPitch::G_FLAT,
+                AcciPref::ALL_FLAT,
+                ["G-", "A-", "B-", "C-", "D-", "E-", "F"],
+            ),
+        ];
+
+        for (tonic, pref, degrees) in keys {
+            for (offset, expected) in [0, 2, 4, 5, 7, 9, 11].into_iter().zip(degrees) {
+                let tone = tonic.tone.generalize() + OTone::new(offset).unwrap();
+                let pitch = tone.to_opitch_in_key(tonic, pref);
+                assert_eq!(pitch.to_string(), expected, "degree {offset} of {tonic}");
             }
-            println!();
         }
+
+        // Without a key, the same tone uses the preference alone.
+        assert_eq!(
+            OTone::F_SHARP.to_opitch_in_key(OPitch::C, AcciPref::ALL_SHARP),
+            OPitch::F_SHARP
+        );
+        assert_eq!(
+            OTone::F_SHARP.to_opitch_in_key(OPitch::C, AcciPref::ALL_FLAT),
+            OPitch::G_FLAT
+        );
+    }
+
+    #[test]
+    fn test_tone_to_pitch() {
+        assert_eq!(Tone::C_0.to_pitch(AcciPref::ALL_SHARP), Pitch::C_0);
+        assert_eq!(Tone::C_1.to_pitch(AcciPref::ALL_SHARP), Pitch::C_1);
+        assert_eq!(Tone::C_M1.to_pitch(AcciPref::ALL_SHARP), Pitch::C_M1);
+        assert_eq!(Tone::new(1).to_pitch(AcciPref::ALL_SHARP), Pitch::C_SHARP_0);
+        assert_eq!(Tone::new(1).to_pitch(AcciPref::ALL_FLAT), Pitch::D_FLAT_0);
+        assert_eq!(Tone::new(13).to_pitch(AcciPref::ALL_FLAT), Pitch::D_FLAT_1);
+        assert_eq!(Tone::new(-1).to_pitch(AcciPref::ALL_FLAT), Pitch::B_M1);
+        assert_eq!(Tone::new(11).to_pitch(AcciPref::ALL_SHARP), Pitch::B_0);
+    }
+
+    #[test]
+    fn test_tone_to_pitch_in_key() {
+        // F sharp in G major, at several octaves.
+        assert_eq!(
+            Tone::F_SHARP_1.to_pitch_in_key(OPitch::G, AcciPref::ALL_SHARP),
+            Pitch::F_SHARP_1
+        );
+        assert_eq!(
+            Tone::F_SHARP_0.to_pitch_in_key(OPitch::G, AcciPref::ALL_SHARP),
+            Pitch::F_SHARP_0
+        );
+        // B flat in F major.
+        assert_eq!(
+            Tone::B_FLAT_1.to_pitch_in_key(OPitch::F, AcciPref::ALL_FLAT),
+            Pitch::B_FLAT_1
+        );
+        // The accidental preference still decides the spelling of other chromatic tones.
+        assert_eq!(
+            Tone::G_SHARP_1.to_pitch_in_key(OPitch::C, AcciPref::ALL_FLAT),
+            Pitch::A_FLAT_1
+        );
     }
 }

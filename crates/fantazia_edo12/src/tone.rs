@@ -1,3 +1,15 @@
+//! Chromatic **tones**, i.e. pitches measured in semitones above middle C.
+//!
+//! A tone is the *sounding* component of a named pitch: it does not carry the note letter, so it
+//! cannot distinguish enharmonic spellings. This module provides:
+//!
+//! - [`OTone`]: an octave-unspecific tone, i.e. one of the twelve pitch classes;
+//! - [`Tone`]: a tone with an octave specification;
+//! - [`OPitchTone`]: the tone component of a named pitch (`OPitch`). Accidentals can move it
+//!   outside `0..12`, so it is not restricted to the twelve pitch classes.
+//!
+//! [`tone`] and [`otone`] are shorthand constructors for [`Tone`] and [`OTone`].
+
 use std::{
     fmt::{Debug, Display},
     iter::Sum,
@@ -225,10 +237,10 @@ const impl NegAssign for OTone {
 
 // MARK: OPitch Tone
 
-/// The tone value for an [`OPitch`] object.
+/// The tone component of a named pitch (`OPitch`).
 ///
 /// Note that different from [`OTone`], the internal value of `OPitchTone` may exceed the range 0..12.
-/// For example [`OPitch`] object *C flat* has tone -1 and *B sharp* has tone 12.
+/// For example the named pitch *C flat* has tone -1 and *B sharp* has tone 12.
 #[derive(Debug, Display, Copy, Hash)]
 #[derive_const(
     Clone, Default, PartialEq, Eq, PartialOrd, Ord, Deref, DerefMut, From, Into
@@ -327,7 +339,7 @@ impl Tone {
         value.into()
     }
 
-    /// Reoresents the [`Tone`] object as primitive type [`i8`].
+    /// Represents the [`Tone`] object as primitive type [`i8`].
     #[inline(always)]
     pub const fn as_i8(&self) -> i8 {
         self.0
@@ -394,85 +406,6 @@ const impl AbsAssign for Tone {
     }
 }
 
-// MARK: Tests
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_chromatic_tone() {
-        let middle_c = tone(0);
-        let high_a = tone(17);
-        println!("{:?}", middle_c);
-        println!("{:?}", high_a);
-
-        assert_eq!(middle_c.generalize(), OTone::try_from(0).unwrap());
-        assert_eq!(high_a.generalize(), OTone::try_from(5).unwrap());
-    }
-
-    #[test]
-    fn test_const_gen() {
-        // Test whether proc-macros are generating the correct constants
-        let _otone_consts = [
-            OTone::C,
-            OTone::C_SHARP,
-            OTone::D_FLAT,
-            OTone::D,
-            OTone::D_SHARP,
-            OTone::E_FLAT,
-            OTone::F,
-            OTone::F_SHARP,
-            OTone::G_FLAT,
-            OTone::G,
-            OTone::G_SHARP,
-            OTone::A_FLAT,
-            OTone::A,
-            OTone::A_SHARP,
-            OTone::B_FLAT,
-            OTone::B,
-        ];
-        let _tone_consts = [
-            Tone::C_M1,
-            Tone::C_0,
-            Tone::C_1,
-            Tone::C_SHARP_M1,
-            Tone::C_SHARP_0,
-            Tone::C_SHARP_1,
-        ];
-    }
-
-    #[test]
-    fn test_derived_traits() {
-        // no compiler error -> it works
-
-        // Clone
-        let _ = OTone::C.clone();
-        // const Clone
-        let _ = const { OTone::C.clone() };
-
-        // Default
-        let _ = OTone::default();
-        // const Default
-        let _ = const { OTone::default() };
-
-        // PartialEq
-        let _ = OTone::C == OTone::C;
-        // const PartialEq
-        let _ = const { OTone::C == OTone::C };
-
-        // PartialOrd and Ord
-        let _ = OTone::C.partial_cmp(&OTone::C);
-        let _ = OTone::C.cmp(&OTone::C);
-
-        // const PartialOrd and const Ord
-        let _ = const { OTone::C.partial_cmp(&OTone::C) };
-        let _ = const { OTone::C.cmp(&OTone::C) };
-
-        let _ = const { OTone::C + OTone::D };
-    }
-}
-
 #[cfg(feature = "macro")]
 impl ToTokens for OTone {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
@@ -500,5 +433,281 @@ impl ToTokens for Tone {
         tokens.extend(quote! {
             ::fantazia::edo12::tone::Tone::new(#value)
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cmp::Ordering;
+
+    use fantazia_core::{
+        arith::{Abs, NegAssign},
+        pitch::{GeneralPitch, SpecificPitch, SpecificPitchIndeterministic, ToFrequency},
+    };
+
+    use super::*;
+
+    /// Frequency ratio of `semitones` semitones, i.e. the expected result of `ToFrequency` for a
+    /// tone measured in semitones.
+    fn ratio(semitones: f64) -> f64 {
+        (semitones / 12.0).exp2()
+    }
+
+    fn assert_frequency(actual: Frequency, expected: f64) {
+        assert!(
+            (actual.get() - expected).abs() < 1e-12,
+            "expected {expected}, got {}",
+            actual.get()
+        );
+    }
+
+    #[test]
+    fn test_const_gen() {
+        // Octave-unspecific tones generated from the pitch names.
+        let expected = [
+            (OTone::C, 0),
+            (OTone::C_SHARP, 1),
+            (OTone::D_FLAT, 1),
+            (OTone::D, 2),
+            (OTone::D_SHARP, 3),
+            (OTone::E_FLAT, 3),
+            (OTone::E, 4),
+            (OTone::F, 5),
+            (OTone::F_SHARP, 6),
+            (OTone::G_FLAT, 6),
+            (OTone::G, 7),
+            (OTone::G_SHARP, 8),
+            (OTone::A_FLAT, 8),
+            (OTone::A, 9),
+            (OTone::A_SHARP, 10),
+            (OTone::B_FLAT, 10),
+            (OTone::B, 11),
+        ];
+        for (tone, semitones) in expected {
+            assert_eq!(i8::from(tone), semitones, "{tone:?}");
+        }
+
+        // Octave-specific tones.
+        assert_eq!(Tone::C_M2.as_i8(), -24);
+        assert_eq!(Tone::C_M1.as_i8(), -12);
+        assert_eq!(Tone::C_0.as_i8(), 0);
+        assert_eq!(Tone::C_1.as_i8(), 12);
+        assert_eq!(Tone::C_2.as_i8(), 24);
+        assert_eq!(Tone::C_SHARP_1.as_i8(), 13);
+        assert_eq!(Tone::B_M1.as_i8(), -1);
+        assert_eq!(Tone::B_FLAT_0.as_i8(), 10);
+    }
+
+    #[test]
+    fn test_otone_integer_representation() {
+        for value in 0i8..12 {
+            let tone = OTone::new(value).unwrap();
+            assert_eq!(i8::from(tone), value);
+            assert_eq!(*tone, value);
+            assert_eq!(OTone::try_from(value), Ok(tone));
+            // SAFETY: `value` is in `0..12`.
+            assert_eq!(unsafe { OTone::new_unchecked(value) }, tone);
+        }
+        assert_eq!(OTone::new(12), None);
+        assert_eq!(OTone::new(-1), None);
+        assert_eq!(OTone::try_from(12), Err(()));
+        assert_eq!(OTone::try_from(-1), Err(()));
+        assert_eq!(OTone::default(), OTone::C);
+    }
+
+    #[test]
+    fn test_otone_arithmetic() {
+        // Addition wraps around modulo twelve.
+        assert_eq!(OTone::C + OTone::C_SHARP, OTone::C_SHARP);
+        assert_eq!(OTone::B + OTone::C_SHARP, OTone::C);
+        assert_eq!(OTone::A + OTone::E, OTone::C_SHARP);
+        assert_eq!(OTone::C - OTone::C_SHARP, OTone::B);
+        assert_eq!(OTone::C_SHARP - OTone::C_SHARP, OTone::C);
+
+        assert_eq!(OTone::C_SHARP * 12, OTone::C);
+        assert_eq!(OTone::C_SHARP * -1, OTone::B);
+        assert_eq!(OTone::E * 3, OTone::C);
+
+        assert_eq!(-OTone::C, OTone::C);
+        assert_eq!(-OTone::C_SHARP, OTone::B);
+        assert_eq!(-OTone::G, OTone::F);
+        for value in 0..12 {
+            let tone = OTone::new(value).unwrap();
+            assert_eq!(tone + -tone, OTone::C);
+        }
+    }
+
+    #[test]
+    fn test_otone_assign_arithmetic() {
+        let mut tone = OTone::C;
+        tone += OTone::B;
+        assert_eq!(tone, OTone::B);
+        tone += OTone::C_SHARP;
+        assert_eq!(tone, OTone::C);
+        tone -= OTone::C_SHARP;
+        assert_eq!(tone, OTone::B);
+        tone *= 2;
+        assert_eq!(tone, OTone::A_SHARP);
+
+        let mut tone = OTone::C_SHARP;
+        tone.neg_assign();
+        assert_eq!(tone, OTone::B);
+    }
+
+    #[test]
+    fn test_otone_display_and_debug() {
+        assert_eq!(OTone::C.to_string(), "0");
+        assert_eq!(OTone::C_SHARP.to_string(), "1");
+        assert_eq!(OTone::B.to_string(), "11");
+        assert_eq!(format!("{:?}", OTone::C), "OTone(0)");
+        assert_eq!(format!("{:?}", OTone::A), "OTone(9)");
+    }
+
+    #[test]
+    fn test_otone_to_frequency() {
+        for semitones in 0i8..12 {
+            let tone = OTone::new(semitones).unwrap();
+            assert_frequency(tone.to_frequency(), ratio(semitones as f64));
+        }
+        assert_frequency(OTone::C.to_frequency(), 1.0);
+        assert_frequency(OTone::A.to_frequency(), ratio(9.0));
+    }
+
+    #[test]
+    fn test_tone_octave_and_generalization() {
+        for value in -30..=30 {
+            let tone = Tone::new(value);
+            assert_eq!(tone.as_i8(), value);
+            assert_eq!(tone.octave(), value.div_euclid(12));
+            assert_eq!(i8::from(tone.generalize()), value.rem_euclid(12));
+        }
+
+        assert_eq!(Tone::C_0.octave(), 0);
+        assert_eq!(Tone::C_1.octave(), 1);
+        assert_eq!(Tone::B_M1.octave(), -1);
+        assert_eq!(Tone::C_M1.generalize(), OTone::C);
+        assert_eq!(Tone::new(13).generalize(), OTone::C_SHARP);
+        assert_eq!(Tone::C_1.generalize_with_octave(1), OPitchTone::new(0));
+        assert_eq!(Tone::new(13).generalize_with_octave(1), OPitchTone::new(1));
+        assert_eq!(Tone::new(13).generalize_with_octave(0), OPitchTone::new(13));
+        assert_eq!(OTone::C.put_in_octave(1), Tone::C_1);
+        assert_eq!(OTone::C_SHARP.put_in_octave(-1), Tone::C_SHARP_M1);
+    }
+
+    #[test]
+    fn test_tone_arithmetic() {
+        assert_eq!(Tone::C_0 + Tone::C_1, Tone::C_1);
+        assert_eq!(Tone::C_1 - Tone::C_0, Tone::C_1);
+        assert_eq!(Tone::C_2 - Tone::C_1, Tone::C_1);
+        assert_eq!(Tone::C_1 * 2, Tone::C_2);
+        assert_eq!(-Tone::C_1, Tone::C_M1);
+        assert_eq!(-Tone::C_0, Tone::C_0);
+        assert_eq!(Tone::new(-3).abs(), Tone::new(3));
+        assert_eq!(Tone::default(), Tone::C_0);
+
+        let mut tone = Tone::C_0;
+        tone += Tone::C_1;
+        assert_eq!(tone, Tone::C_1);
+        tone -= Tone::C_0;
+        assert_eq!(tone, Tone::C_1);
+        tone *= 2;
+        assert_eq!(tone, Tone::C_2);
+        tone.neg_assign();
+        assert_eq!(tone, Tone::C_M2);
+    }
+
+    #[test]
+    fn test_tone_sum() {
+        assert_eq!([Tone::C_0, Tone::C_1].into_iter().sum::<Tone>(), Tone::C_1);
+        assert_eq!(std::iter::empty::<Tone>().sum::<Tone>(), Tone::C_0);
+    }
+
+    #[test]
+    fn test_tone_to_frequency() {
+        assert_frequency(Tone::C_M1.to_frequency(), 0.5);
+        assert_frequency(Tone::C_0.to_frequency(), 1.0);
+        assert_frequency(Tone::C_1.to_frequency(), 2.0);
+        assert_frequency(Tone::C_2.to_frequency(), 4.0);
+        assert_frequency(Tone::A_0.to_frequency(), ratio(9.0));
+        assert_frequency(Tone::new(-1).to_frequency(), ratio(-1.0));
+        // An octave is a factor of two, whatever the starting point is.
+        for semitones in -12i8..=12 {
+            assert_frequency(
+                Tone::new(semitones + 12).to_frequency(),
+                Tone::new(semitones).to_frequency().get() * 2.0,
+            );
+        }
+    }
+
+    #[test]
+    fn test_tone_display_and_debug() {
+        assert_eq!(Tone::C_0.to_string(), "0");
+        assert_eq!(Tone::C_1.to_string(), "12");
+        assert_eq!(Tone::new(-1).to_string(), "-1");
+        assert_eq!(format!("{:?}", Tone::C_1), "Tone(12)");
+    }
+
+    #[test]
+    fn test_opitch_tone() {
+        let tone = OPitchTone::new(13);
+        assert_eq!(tone.as_i8(), 13);
+        assert_eq!(tone.octave(), 1);
+        assert_eq!(tone.generalize(), OTone::C_SHARP);
+        assert_eq!(OPitchTone::new(-1).octave(), -1);
+        assert_eq!(OPitchTone::new(-1).generalize(), OTone::B);
+        assert_eq!(OPitchTone::new(0), OPitchTone::default());
+
+        assert_eq!(tone + Acci::FLAT, OPitchTone::new(12));
+        assert_eq!(tone - Acci::DOUBLE_SHARP, OPitchTone::new(11));
+        assert_eq!(OPitchTone::new(1).put_in_octave(1), Tone::C_SHARP_1);
+        assert_eq!(OPitchTone::new(1).put_in_octave(0), Tone::C_SHARP_0);
+
+        let mut tone = OPitchTone::new(1);
+        tone += Acci::SHARP;
+        assert_eq!(tone, OPitchTone::new(2));
+        tone -= Acci::TRIPLE_FLAT;
+        assert_eq!(tone, OPitchTone::new(5));
+
+        assert_frequency(OPitchTone::new(12).to_frequency(), 2.0);
+        assert_frequency(OPitchTone::new(-1).to_frequency(), ratio(-1.0));
+        assert_eq!(OPitchTone::new(13).to_string(), "13");
+    }
+
+    /// Generic helper so that the derived `Clone` implementation can be exercised without
+    /// triggering `clippy::clone_on_copy`.
+    const fn clone_const<T: [const] Clone>(value: &T) -> T {
+        value.clone()
+    }
+
+    #[test]
+    fn test_derived_traits() {
+        // The derived `Clone` implementation is usable at runtime and in `const` contexts.
+        assert_eq!(clone_const(&OTone::C), OTone::C);
+        assert_eq!(const { clone_const(&OTone::C) }, OTone::C);
+
+        assert_eq!(OTone::default(), OTone::C);
+        assert_eq!(const { OTone::default() }, OTone::C);
+
+        assert!(OTone::C == OTone::C);
+        const {
+            assert!(OTone::C == OTone::C);
+        }
+
+        assert_eq!(OTone::C.partial_cmp(&OTone::C), Some(Ordering::Equal));
+        assert_eq!(OTone::C.cmp(&OTone::C), Ordering::Equal);
+        assert_eq!(const { OTone::C.cmp(&OTone::D) }, Ordering::Less);
+        assert_eq!(const { OTone::C + OTone::D }, OTone::D);
+    }
+
+    #[test]
+    fn test_chromatic_tone() {
+        let middle_c = tone(0);
+        let high_a = tone(17);
+
+        assert_eq!(middle_c, Tone::C_0);
+        assert_eq!(high_a, Tone::F_1);
+        assert_eq!(middle_c.generalize(), OTone::C);
+        assert_eq!(high_a.generalize(), OTone::F);
+        assert_eq!(otone(17), OTone::F);
     }
 }

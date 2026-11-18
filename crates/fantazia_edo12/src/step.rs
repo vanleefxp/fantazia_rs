@@ -1,3 +1,16 @@
+//! Note **steps**, i.e. note letters without accidentals.
+//!
+//! A step names a note as one of the seven letters `C`–`B` and is represented by an integer in
+//! `0..7`. Steps form the cyclic group `Z_7`: addition, subtraction and scalar
+//! multiplication wrap around modulo seven, which is how intervals move between note letters.
+//!
+//! This module provides:
+//! - the [`OStep`] type for an octave-unspecific step, and
+//! - the [`Step`] type for an octave-specific step.
+//!
+//! [`OStep`] also tracks the position of each letter on the circle of fifths, which is the basis of
+//! key signatures and enharmonic respelling.
+
 use std::{
     fmt::{Debug, Display},
     iter::Sum,
@@ -132,8 +145,9 @@ impl OStep {
     /// Returns the **diatonic tone** of the step, i.e. the tone of the pitch with this step and
     /// without any accidental.
     ///
-    /// The diatonic tone for step **C**, **D**, **E**, **F**, **G**, **A**, **B** are **0**, **2**,
-    /// **4**, **5**, **7**, **9**, **11**, respectively.
+    /// The diatonic tone for step **C**, **D**, **E**, **F**, **G**, **A**, **B** is **0**, **2**,
+    /// **4**, **5**, **7**, **9**, **11** semitones above middle C, respectively. The octave
+    /// specification of a [`Step`] shifts the result by a whole octave, i.e. by twelve semitones.
     ///
     /// ```
     /// use fantazia_edo12::{step::OStep, tone::tone};
@@ -284,6 +298,15 @@ impl FromStr for OStep {
 // MARK: Step
 
 /// A **step** with octave specification.
+///
+/// A `Step` is the sum of an octave number and a note letter:
+///
+/// - octave `0` starts at middle C, so `C_0` is the value `0` and `B_0` is the value `6`;
+/// - octave `-1` is the octave below, so `C_M1` is the value `-7`;
+/// - octave `+1` is the octave above, so `C_1` is the value `7`.
+///
+/// The octave is available through [`SpecificPitch::octave`], the letter through
+/// [`SpecificPitch::generalize`].
 #[derive(Copy, Debug, Hash)]
 #[derive_const(
     Clone, PartialEq, Eq, PartialOrd, Ord, Default, Add, AddAssign, Sub, SubAssign, Mul, MulAssign,
@@ -300,7 +323,10 @@ pub struct Step(pub(crate) i8);
 gen_step_consts!();
 
 impl Step {
-    /// Creates a new [`Step`] object.
+    /// Creates a new [`Step`] object from its integer representation.
+    ///
+    /// The value is the sum of the step's note letter index and the octave number multiplied by
+    /// seven, i.e. `C_0` is `0`, `D_0` is `1` and `C_1` is `7`.
     pub const fn new(value: i8) -> Self {
         Self(value)
     }
@@ -312,7 +338,8 @@ impl Step {
 
     /// Returns the step's index in **circle / chain of fifth**. See [`OStep::co5_order`] for details.
     ///
-    /// This method is equivalent to `self.generalize().co5_order()`.
+    /// This method is equivalent to `self.generalize().co5_order()`, so the octave specification
+    /// does not influence the result.
     #[inline]
     pub const fn co5_order(&self) -> i8 {
         self.generalize().co5_order()
@@ -320,8 +347,12 @@ impl Step {
 
     /// Returns the **diatonic tone** of the step, i.e. the tone of the pitch with this step and
     /// without any accidental.
+    ///
+    /// Unlike [`OStep::diatonic_tone`], this method also accounts for the octave specification, so
+    /// the result is expressed in semitones relative to `C_0`. For example, `C_1` has diatonic tone
+    /// `12` and `B_M1` has diatonic tone `-1`.
     pub const fn diatonic_tone(&self) -> Tone {
-        Tone(self.generalize().diatonic_tone().0 + self.octave() * 7)
+        Tone(self.generalize().diatonic_tone().0 + self.octave() * 12)
     }
 }
 
@@ -367,6 +398,8 @@ const impl Sign for Step {
     }
 }
 
+/// Formats a [`Step`] as its note letter followed by `_` and its octave number, e.g. `C_1` or
+/// `B_-1`. The result can be parsed back with [`Step::from_str`].
 impl Display for Step {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}_{}", self.generalize(), self.octave())
@@ -389,6 +422,22 @@ pub enum InvalidStep {
 
 impl FromStr for Step {
     type Err = InvalidStep;
+
+    /// Parses a [`Step`] from a note name and an octave number separated by `_`, e.g. `C_0`,
+    /// `F#_1` (invalid, steps do not carry accidentals) or `B_-1`.
+    ///
+    /// The note name is parsed by [`OStep::from_str`], so it is case insensitive and accepts every
+    /// supported note literal. The octave number must be a decimal [`i8`] and may be negative.
+    ///
+    /// ```
+    /// use fantazia_edo12::step::Step;
+    ///
+    /// assert_eq!("C_0".parse::<Step>().ok(), Some(Step::C_0));
+    /// assert_eq!("c_1".parse::<Step>().ok(), Some(Step::C_1));
+    /// assert_eq!("sol_1".parse::<Step>().ok(), Some(Step::G_1));
+    /// assert_eq!("B_-1".parse::<Step>().ok(), Some(Step::B_M1));
+    /// assert_eq!("C".parse::<Step>().ok(), None);
+    /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if let Some((ostep_src, octave_src)) = s.split_once('_') {
             let octave = octave_src.parse()?; // decimal only
@@ -396,38 +445,6 @@ impl FromStr for Step {
         } else {
             Err(InvalidStep::MissingOctave)
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::step::{OStep, Step};
-
-    #[test]
-    fn test_const_gen() {
-        let _ostep_consts = [
-            OStep::C,
-            OStep::UNISON,
-            OStep::DO,
-            OStep::UT,
-            OStep::D,
-            OStep::SECOND,
-            OStep::RE,
-        ];
-        let _step_consts = [
-            Step::C_0,
-            Step::D_0,
-            Step::E_0,
-            Step::C_1,
-            Step::D_1,
-            Step::E_1,
-        ];
-    }
-
-    #[test]
-    fn test_debug_display() {
-        assert_eq!(format!("{}", OStep::C), "C");
-        assert_eq!(format!("{:?}", OStep::C), "C");
     }
 }
 
@@ -449,5 +466,365 @@ impl ToTokens for Step {
         tokens.extend(quote! {
             ::fantazia::edo12::step::Step::new(#value)
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cmp::Ordering;
+
+    use fantazia_core::{
+        arith::{Abs, NegAssign, Sign},
+        pitch::{GeneralPitch, SpecificPitch},
+    };
+
+    use super::*;
+    use crate::tone::Tone;
+
+    #[test]
+    fn test_const_gen() {
+        // The following constants are generated by proc-macros. This test only verifies that they
+        // exist and that the generated aliases refer to the expected variants.
+        assert_eq!(OStep::DO, OStep::C);
+        assert_eq!(OStep::UT, OStep::C);
+        assert_eq!(OStep::UNISON, OStep::C);
+        assert_eq!(OStep::RE, OStep::D);
+        assert_eq!(OStep::SECOND, OStep::D);
+        assert_eq!(OStep::MI, OStep::E);
+        assert_eq!(OStep::THIRD, OStep::E);
+        assert_eq!(OStep::FA, OStep::F);
+        assert_eq!(OStep::FOURTH, OStep::F);
+        assert_eq!(OStep::SOL, OStep::G);
+        assert_eq!(OStep::FIFTH, OStep::G);
+        assert_eq!(OStep::LA, OStep::A);
+        assert_eq!(OStep::SIXTH, OStep::A);
+        assert_eq!(OStep::SI, OStep::B);
+        assert_eq!(OStep::TI, OStep::B);
+        assert_eq!(OStep::SEVENTH, OStep::B);
+
+        assert_eq!(Step::C_M2.as_i8(), -14);
+        assert_eq!(Step::C_M1.as_i8(), -7);
+        assert_eq!(Step::C_0.as_i8(), 0);
+        assert_eq!(Step::C_1.as_i8(), 7);
+        assert_eq!(Step::B_M1.as_i8(), -1);
+        assert_eq!(Step::B_0.as_i8(), 6);
+    }
+
+    #[test]
+    fn test_ostep_integer_representation() {
+        let steps = [
+            OStep::C,
+            OStep::D,
+            OStep::E,
+            OStep::F,
+            OStep::G,
+            OStep::A,
+            OStep::B,
+        ];
+        for (value, step) in (0i8..7).zip(steps) {
+            assert_eq!(step as i8, value);
+            assert_eq!(*step, value);
+            assert_eq!(OStep::new(value), Some(step));
+            assert_eq!(OStep::try_from(value), Ok(step));
+            // SAFETY: `value` is in `0..7`.
+            assert_eq!(unsafe { OStep::new_unchecked(value) }, step);
+        }
+        assert_eq!(OStep::new(7), None);
+        assert_eq!(OStep::new(-1), None);
+        assert_eq!(OStep::try_from(7), Err(()));
+        assert_eq!(OStep::try_from(-1), Err(()));
+    }
+
+    #[test]
+    fn test_ostep_diatonic_tone() {
+        let expected = [
+            (OStep::C, 0),
+            (OStep::D, 2),
+            (OStep::E, 4),
+            (OStep::F, 5),
+            (OStep::G, 7),
+            (OStep::A, 9),
+            (OStep::B, 11),
+        ];
+        for (step, tone) in expected {
+            assert_eq!(step.diatonic_tone().as_i8(), tone);
+        }
+    }
+
+    #[test]
+    fn test_ostep_co5_order() {
+        // The order of the canonical representatives on the circle of fifths.
+        let chain = [
+            (OStep::F, -1),
+            (OStep::C, 0),
+            (OStep::G, 1),
+            (OStep::D, 2),
+            (OStep::A, 3),
+            (OStep::E, 4),
+            (OStep::B, 5),
+        ];
+        for (step, order) in chain {
+            assert_eq!(step.co5_order(), order);
+            assert_eq!(OStep::from_co5_order(order), step);
+        }
+
+        // `from_co5_order` reduces the provided order modulo seven, while `co5_order` always
+        // returns the canonical representative.
+        assert_eq!(OStep::from_co5_order(-8), OStep::F);
+        assert_eq!(OStep::from_co5_order(-2), OStep::B);
+        assert_eq!(OStep::from_co5_order(6), OStep::F);
+        assert_eq!(OStep::from_co5_order(12), OStep::B);
+        assert_eq!(OStep::from_co5_order(13), OStep::F);
+    }
+
+    #[test]
+    fn test_ostep_arithmetic() {
+        // Addition of steps follows the arithmetic of the cyclic group `Z_7`.
+        assert_eq!(OStep::C + OStep::C, OStep::C);
+        assert_eq!(OStep::C + OStep::E, OStep::E);
+        assert_eq!(OStep::E + OStep::A, OStep::C);
+        assert_eq!(OStep::B + OStep::D, OStep::C);
+
+        assert_eq!(OStep::A - OStep::C, OStep::A);
+        assert_eq!(OStep::E - OStep::A, OStep::G);
+        assert_eq!(OStep::C - OStep::D, OStep::B);
+
+        assert_eq!(OStep::E * 3, OStep::B);
+        assert_eq!(3 * OStep::E, OStep::B);
+        assert_eq!(OStep::C * 5, OStep::C);
+
+        // Negation is the inverse on the circle, i.e. `x + (-x) == C`.
+        assert_eq!(-OStep::C, OStep::C);
+        assert_eq!(-OStep::D, OStep::B);
+        assert_eq!(-OStep::E, OStep::A);
+        assert_eq!(-OStep::B, OStep::D);
+        for step in [
+            OStep::C,
+            OStep::D,
+            OStep::E,
+            OStep::F,
+            OStep::G,
+            OStep::A,
+            OStep::B,
+        ] {
+            assert_eq!(step + -step, OStep::C);
+        }
+
+        assert_eq!(
+            [OStep::C, OStep::D, OStep::E].into_iter().sum::<OStep>(),
+            OStep::F
+        );
+        assert_eq!(std::iter::empty::<OStep>().sum::<OStep>(), OStep::C);
+    }
+
+    #[test]
+    fn test_ostep_assign_arithmetic() {
+        let mut step = OStep::C;
+        step += OStep::E;
+        assert_eq!(step, OStep::E);
+        step -= OStep::D;
+        assert_eq!(step, OStep::D);
+        step *= 3;
+        assert_eq!(step, OStep::F);
+
+        let mut step = OStep::F;
+        step.neg_assign();
+        assert_eq!(step, OStep::G);
+    }
+
+    #[test]
+    fn test_ostep_ordering_and_default() {
+        assert_eq!(OStep::C.cmp(&OStep::C), Ordering::Equal);
+        assert!(OStep::C < OStep::D);
+        assert!(OStep::B > OStep::A);
+        assert_eq!(OStep::default(), OStep::C);
+    }
+
+    #[test]
+    fn test_ostep_from_str() {
+        let cases = [
+            ("C", OStep::C),
+            ("c", OStep::C),
+            ("do", OStep::C),
+            ("UT", OStep::C),
+            ("1", OStep::C),
+            ("D", OStep::D),
+            ("re", OStep::D),
+            ("2", OStep::D),
+            ("E", OStep::E),
+            ("mi", OStep::E),
+            ("3", OStep::E),
+            ("F", OStep::F),
+            ("fa", OStep::F),
+            ("4", OStep::F),
+            ("G", OStep::G),
+            ("sol", OStep::G),
+            ("5", OStep::G),
+            ("A", OStep::A),
+            ("la", OStep::A),
+            ("6", OStep::A),
+            ("B", OStep::B),
+            ("si", OStep::B),
+            ("Ti", OStep::B),
+            ("7", OStep::B),
+        ];
+        for (src, expected) in cases {
+            assert_eq!(src.parse::<OStep>().ok(), Some(expected), "`{src}`");
+        }
+
+        for invalid in ["", "H", "0", "8", "C#", "doe"] {
+            assert!(invalid.parse::<OStep>().is_err(), "`{invalid}`");
+        }
+
+        let err = "H".parse::<OStep>().unwrap_err();
+        assert_eq!(err.to_string(), "H is not a valid `OStep`");
+    }
+
+    #[test]
+    fn test_ostep_display_and_debug() {
+        let cases = [
+            (OStep::C, "C"),
+            (OStep::D, "D"),
+            (OStep::E, "E"),
+            (OStep::F, "F"),
+            (OStep::G, "G"),
+            (OStep::A, "A"),
+            (OStep::B, "B"),
+        ];
+        for (step, expected) in cases {
+            assert_eq!(step.to_string(), expected);
+            assert_eq!(format!("{step:?}"), expected);
+        }
+    }
+
+    #[test]
+    fn test_step_octave_and_generalization() {
+        for value in -21..=21 {
+            let step = Step::new(value);
+            assert_eq!(step.as_i8(), value);
+            assert_eq!(step.octave(), value.div_euclid(7));
+            assert_eq!(step.generalize(), OStep::new(value.rem_euclid(7)).unwrap());
+            assert_eq!(step.generalize().put_in_octave(step.octave()), step);
+        }
+
+        assert_eq!(Step::C_0.octave(), 0);
+        assert_eq!(Step::C_1.octave(), 1);
+        assert_eq!(Step::B_M1.octave(), -1);
+        assert_eq!(OStep::C.put_in_octave(2), Step::new(14));
+        assert_eq!(Step::C_1.with_octave(0), Step::C_0);
+        assert_eq!(Step::C_0.co5_order(), 0);
+        assert_eq!(Step::C_1.co5_order(), 0);
+        assert_eq!(Step::F_M1.co5_order(), -1);
+    }
+
+    #[test]
+    fn test_step_diatonic_tone() {
+        for value in -21..=21 {
+            let step = Step::new(value);
+            let expected = step.generalize().diatonic_tone().as_i8() + step.octave() * 12;
+            assert_eq!(step.diatonic_tone(), Tone::new(expected));
+        }
+
+        assert_eq!(Step::C_0.diatonic_tone(), Tone::C_0);
+        assert_eq!(Step::C_1.diatonic_tone(), Tone::C_1);
+        assert_eq!(Step::B_M1.diatonic_tone(), Tone::new(-1));
+        assert_eq!(Step::G_M1.diatonic_tone(), Tone::new(-5));
+    }
+
+    #[test]
+    fn test_step_arithmetic() {
+        assert_eq!(Step::C_0 + Step::C_0, Step::C_0);
+        assert_eq!(Step::C_0 + Step::C_1, Step::C_1);
+        assert_eq!(Step::B_0 + Step::new(1), Step::C_1);
+        assert_eq!(Step::C_1 - Step::C_0, Step::C_1);
+        assert_eq!(Step::C_0 - Step::C_1, Step::C_M1);
+        assert_eq!(Step::new(3) * 2, Step::new(6));
+        assert_eq!(-Step::C_1, Step::C_M1);
+        assert_eq!(-Step::new(3), Step::new(-3));
+        assert_eq!(
+            [Step::C_0, Step::C_1].into_iter().sum::<Step>(),
+            Step::new(7)
+        );
+
+        let mut step = Step::C_0;
+        step += Step::new(2);
+        assert_eq!(step, Step::E_0);
+        step -= Step::new(1);
+        assert_eq!(step, Step::D_0);
+        step *= 2;
+        assert_eq!(step, Step::new(2));
+    }
+
+    #[test]
+    fn test_step_abs_and_sign() {
+        assert_eq!(Step::new(-3).abs(), Step::new(3));
+        assert_eq!(Step::new(3).abs(), Step::new(3));
+        assert_eq!(Step::new(-3).sign(), Ordering::Less);
+        assert_eq!(Step::C_0.sign(), Ordering::Equal);
+        assert_eq!(Step::C_1.sign(), Ordering::Greater);
+
+        let mut step = Step::new(-4);
+        step.abs_assign();
+        assert_eq!(step, Step::new(4));
+
+        let mut step = Step::C_1;
+        step.neg_assign();
+        assert_eq!(step, Step::C_M1);
+    }
+
+    #[test]
+    fn test_step_display_and_parse() {
+        assert_eq!(Step::C_0.to_string(), "C_0");
+        assert_eq!(Step::C_1.to_string(), "C_1");
+        assert_eq!(Step::B_M1.to_string(), "B_-1");
+
+        for value in -21..=21 {
+            let step = Step::new(value);
+            let src = step.to_string();
+            assert_eq!(src.parse::<Step>().unwrap(), step, "parse `{src}`");
+        }
+
+        assert_eq!("c_1".parse::<Step>().unwrap(), Step::C_1);
+        assert_eq!("do_0".parse::<Step>().unwrap(), Step::C_0);
+        assert_eq!("C_-2".parse::<Step>().unwrap(), Step::C_M2);
+    }
+
+    #[test]
+    fn test_step_parse_errors() {
+        assert!(matches!(
+            "C".parse::<Step>(),
+            Err(InvalidStep::MissingOctave)
+        ));
+        assert!(matches!(
+            "C_x".parse::<Step>(),
+            Err(InvalidStep::InvalidOctave(_))
+        ));
+        assert!(matches!(
+            "C_1_2".parse::<Step>(),
+            Err(InvalidStep::InvalidOctave(_))
+        ));
+        assert!(matches!(
+            "H_0".parse::<Step>(),
+            Err(InvalidStep::InvalidOStep(_))
+        ));
+        assert_eq!(
+            "C".parse::<Step>().unwrap_err().to_string(),
+            "missing octave specification"
+        );
+    }
+
+    #[test]
+    fn test_const_evaluation() {
+        const STEP: Step = Step::C_1 + Step::new(2);
+        assert_eq!(STEP, Step::E_1);
+
+        const OSTEP: OStep = OStep::C + OStep::G;
+        assert_eq!(OSTEP, OStep::G);
+
+        const TONE: Tone = Step::C_1.diatonic_tone();
+        assert_eq!(TONE, Tone::C_1);
+
+        const CO5: i8 = OStep::G.co5_order();
+        assert_eq!(CO5, 1);
     }
 }

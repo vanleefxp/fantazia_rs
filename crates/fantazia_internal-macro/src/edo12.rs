@@ -7,6 +7,8 @@ const PITCH_NAMES: [&str; 17] = [
     "C", "C sharp", "D flat", "D", "D sharp", "E flat", "E", "F", "F sharp", "G flat", "G",
     "G sharp", "A flat", "A", "A sharp", "B flat", "B",
 ];
+/// Semitone offset of each entry in `PITCH_NAMES` relative to middle C.
+const PITCH_TONES: [i8; 17] = [0, 1, 1, 2, 3, 3, 4, 5, 6, 6, 7, 8, 8, 9, 10, 10, 11];
 const STEP_NAMES: [&[&str]; 7] = [
     &["C", "do", "ut"],
     &["D", "re"],
@@ -149,7 +151,7 @@ pub fn gen_step_consts(octave_range: impl IntoIterator<Item = i8>) -> pm2::Token
                     .collect::<Vec<_>>()
                     .join(" / "),
             );
-            for step_name in step_names.iter().copied() {
+            for step_name in step_names {
                 let step_name = format_ident!(
                     "{}_{}",
                     step_name.to_uppercase(),
@@ -172,15 +174,15 @@ pub fn gen_step_consts(octave_range: impl IntoIterator<Item = i8>) -> pm2::Token
 
 pub fn gen_otone_consts() -> pm2::TokenStream {
     let mut const_decls = quote!();
-    let opitch_path = opitch_path();
     let otone_path = otone_path();
 
-    for pitch_name in PITCH_NAMES {
+    for (pitch_name, tone) in PITCH_NAMES.iter().zip(PITCH_TONES) {
         let var_name = opitch_var_name(pitch_name);
+        let variant_name = format_ident!("_{tone}");
         let doc_string = format!("Tone corresponding to pitch {pitch_name}.");
         const_decls.extend(quote! {
             #[doc = #doc_string]
-            pub const #var_name: Self = #opitch_path::#var_name.tone.generalize();
+            pub const #var_name: Self = Self::#variant_name;
         });
     }
 
@@ -193,15 +195,15 @@ pub fn gen_otone_consts() -> pm2::TokenStream {
 
 pub fn gen_tone_consts(octave_range: impl Iterator<Item = i8>) -> pm2::TokenStream {
     let mut const_decls = quote!();
-    let pitch_path = pitch_path();
     let tone_path = tone_path();
     for octave in octave_range {
-        for pitch_name in PITCH_NAMES {
+        for (pitch_name, tone) in PITCH_NAMES.iter().zip(PITCH_TONES) {
             let var_name = pitch_var_name(pitch_name, octave);
             let doc_string = format!("Tone corresponding to pitch {pitch_name} in octave {octave}");
+            let value = octave * 12 + tone;
             const_decls.extend(quote! {
                 #[doc = #doc_string]
-                pub const #var_name: Self = #pitch_path::#var_name.tone;
+                pub const #var_name: Self = Self(#value);
             });
         }
     }

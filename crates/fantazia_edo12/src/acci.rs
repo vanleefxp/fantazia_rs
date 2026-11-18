@@ -1,3 +1,14 @@
+//! Musical **accidentals**.
+//!
+//! An accidental is the number of semitones by which a pitch is altered relative to the diatonic
+//! tone of its step: `+1` is a sharp, `-1` a flat, `0` is natural, and values beyond that denote
+//! double, triple, ... accidentals. [`Acci`] is a transparent wrapper around [`i8`], so every
+//! integer is a valid accidental.
+//!
+//! [`Acci`] renders as a sequence of `+` / `-` / `=` characters and can be parsed back from the
+//! same notation, including the bracketed form used for wide accidentals such as `[+4]`.
+//!
+
 //! Musical **accidental** representation.
 
 use std::{
@@ -153,6 +164,8 @@ const impl Sign for Acci {
     }
 }
 
+/// Formats the accidental with one `+` or `-` per semitone, `=` for a natural, or as a bracketed
+/// signed integer (e.g. `[+4]`) when it would require more than three signs.
 impl Display for Acci {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.0 {
@@ -189,6 +202,23 @@ pub enum InvalidAcci {
 
 impl FromStr for Acci {
     type Err = InvalidAcci;
+
+    /// Parses an accidental from a sequence of `+`, `-` and `=` characters, or from a bracketed
+    /// decimal integer such as `[+4]`.
+    ///
+    /// Every `+` raises the accidental by one semitone and every `-` lowers it by one, while `=`
+    /// stands for a natural and leaves the value unchanged. The empty string parses as the natural
+    /// accidental.
+    ///
+    /// ```
+    /// use fantazia_edo12::acci::Acci;
+    ///
+    /// assert_eq!("+".parse::<Acci>().ok(), Some(Acci::SHARP));
+    /// assert_eq!("--".parse::<Acci>().ok(), Some(Acci::DOUBLE_FLAT));
+    /// assert_eq!("=".parse::<Acci>().ok(), Some(Acci::NATURAL));
+    /// assert_eq!("[+4]".parse::<Acci>().ok(), Some(Acci::new(4)));
+    /// assert_eq!("x".parse::<Acci>().ok(), None);
+    /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.starts_with('[') && s.ends_with(']') {
             let s = &s[1..(s.len() - 1)];
@@ -220,10 +250,32 @@ impl ToTokens for Acci {
 
 #[cfg(test)]
 mod tests {
+    use std::cmp::Ordering;
+
+    use fantazia_core::arith::{Abs, NegAssign, Sign};
+
     use super::*;
+    use crate::tone::Tone;
 
     #[test]
-    pub fn test_display_and_parse() {
+    fn test_constants() {
+        assert_eq!(Acci::TRIPLE_SHARP.as_i8(), 3);
+        assert_eq!(Acci::DOUBLE_SHARP.as_i8(), 2);
+        assert_eq!(Acci::SHARP.as_i8(), 1);
+        assert_eq!(Acci::NATURAL.as_i8(), 0);
+        assert_eq!(Acci::FLAT.as_i8(), -1);
+        assert_eq!(Acci::DOUBLE_FLAT.as_i8(), -2);
+        assert_eq!(Acci::TRIPLE_FLAT.as_i8(), -3);
+
+        assert_eq!(Acci::new(2), Acci::DOUBLE_SHARP);
+        assert_eq!(acci(2), Acci::DOUBLE_SHARP);
+        assert_eq!(Acci::default(), Acci::NATURAL);
+        // `Acci` dereferences to its `i8` representation.
+        assert_eq!(*Acci::FLAT, -1);
+    }
+
+    #[test]
+    fn test_display_and_parse() {
         let expected = [
             (acci(4), "[+4]"),
             (acci(3), "+++"),
@@ -239,5 +291,94 @@ mod tests {
             assert_eq!(input.to_string(), expected);
             assert_eq!(expected.parse::<Acci>().unwrap(), input);
         }
+
+        // Every accidental round-trips through its display representation.
+        for value in -10..=10 {
+            let acci = acci(value);
+            let src = acci.to_string();
+            assert_eq!(src.parse::<Acci>().unwrap(), acci, "parse `{src}`");
+        }
+        assert_eq!(acci(4).to_string(), "[+4]");
+        assert_eq!(acci(-6).to_string(), "[-6]");
+    }
+
+    #[test]
+    fn test_parse_forms() {
+        assert_eq!("".parse::<Acci>().unwrap(), Acci::NATURAL);
+        assert_eq!("=".parse::<Acci>().unwrap(), Acci::NATURAL);
+        assert_eq!("+-".parse::<Acci>().unwrap(), Acci::NATURAL);
+        assert_eq!("=+=".parse::<Acci>().unwrap(), Acci::SHARP);
+        assert_eq!("[4]".parse::<Acci>().unwrap(), acci(4));
+        assert_eq!("[+4]".parse::<Acci>().unwrap(), acci(4));
+        assert_eq!("[-4]".parse::<Acci>().unwrap(), acci(-4));
+
+        assert!(matches!(
+            "C".parse::<Acci>(),
+            Err(InvalidAcci::InvalidChar(0, 'C'))
+        ));
+        assert!(matches!(
+            "+x+".parse::<Acci>(),
+            Err(InvalidAcci::InvalidChar(1, 'x'))
+        ));
+        assert!(matches!(
+            "[x]".parse::<Acci>(),
+            Err(InvalidAcci::InvalidNumber(_))
+        ));
+        assert!(matches!(
+            "[999]".parse::<Acci>(),
+            Err(InvalidAcci::InvalidNumber(_))
+        ));
+        assert_eq!(
+            "x".parse::<Acci>().unwrap_err().to_string(),
+            "`x` (at index 0) is not a valid character for accidental (expect `'+'`, `'-'` or `'='`)"
+        );
+    }
+
+    #[test]
+    fn test_arithmetic() {
+        assert_eq!(Acci::SHARP + Acci::FLAT, Acci::NATURAL);
+        assert_eq!(Acci::SHARP - Acci::SHARP, Acci::NATURAL);
+        assert_eq!(Acci::DOUBLE_SHARP * 2, acci(4));
+        assert_eq!(2 * Acci::DOUBLE_SHARP, acci(4));
+        assert_eq!(-Acci::SHARP, Acci::FLAT);
+        assert_eq!(-Acci::NATURAL, Acci::NATURAL);
+        assert_eq!(acci(-3).abs(), Acci::TRIPLE_SHARP);
+
+        assert_eq!(Acci::FLAT.sign(), Ordering::Less);
+        assert_eq!(Acci::NATURAL.sign(), Ordering::Equal);
+        assert_eq!(Acci::SHARP.sign(), Ordering::Greater);
+
+        let mut acci = Acci::SHARP;
+        acci += Acci::SHARP;
+        assert_eq!(acci, Acci::DOUBLE_SHARP);
+        acci -= Acci::SHARP;
+        assert_eq!(acci, Acci::SHARP);
+        acci *= 3;
+        assert_eq!(acci, Acci::TRIPLE_SHARP);
+        acci.neg_assign();
+        assert_eq!(acci, Acci::TRIPLE_FLAT);
+        acci.abs_assign();
+        assert_eq!(acci, Acci::TRIPLE_SHARP);
+    }
+
+    #[test]
+    fn test_tone_interop() {
+        assert_eq!(Tone::from(Acci::SHARP), Tone::new(1));
+        assert_eq!(Acci::from(Tone::new(-1)), Acci::FLAT);
+
+        assert_eq!(Tone::C_0 + Acci::SHARP, Tone::new(1));
+        assert_eq!(Tone::new(1) - Acci::SHARP, Tone::C_0);
+
+        let mut tone = Tone::C_0;
+        tone += Acci::DOUBLE_SHARP;
+        assert_eq!(tone, Tone::new(2));
+        tone -= Acci::SHARP;
+        assert_eq!(tone, Tone::new(1));
+    }
+
+    #[test]
+    fn test_debug() {
+        assert_eq!(format!("{:?}", Acci::SHARP), "Acci(1)");
+        assert_eq!(format!("{:?}", Acci::TRIPLE_FLAT), "Acci(-3)");
     }
 }
