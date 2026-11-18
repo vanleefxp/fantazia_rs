@@ -13,23 +13,12 @@ pub enum ReprType {
 
 #[derive(Debug, Copy, Hash)]
 #[derive_const(PartialEq, Eq, PartialOrd, Ord, Clone)]
-pub enum SignedReprType {
-    I8,
-    I16,
-    I32,
-    I64,
-    I128,
-}
-
-#[derive(Debug, Copy, Hash)]
-#[derive_const(PartialEq, Eq, PartialOrd, Ord, Clone)]
-pub enum ReprTypeOrZST {
-    ZST,
+pub enum ReprTypeOrZst {
+    Zst,
     NonZero(ReprType),
 }
 
 const impl ReprType {
-    pub const ALL: &[Self] = &[Self::U8, Self::U16, Self::U32, Self::U64, Self::U128];
     pub fn from_variant_count(count: u128) -> Option<Self> {
         if count == 1 {
             None
@@ -59,39 +48,35 @@ const impl ReprType {
         }
     }
 
-    pub fn to_signed(&self) -> SignedReprType {
+    /// Number of bits of the representation type.
+    pub fn bits(&self) -> u32 {
         use ReprType::*;
-        use SignedReprType::*;
         match *self {
-            U8 => I8,
-            U16 => I16,
-            U32 => I32,
-            U64 => I64,
-            U128 => I128,
+            U8 => 8,
+            U16 => 16,
+            U32 => 32,
+            U64 => 64,
+            U128 => 128,
+        }
+    }
+
+    /// Largest value representable by the representation type.
+    pub fn max_value(&self) -> u128 {
+        let bits = self.bits();
+        if bits == 128 {
+            u128::MAX
+        } else {
+            (1u128 << bits) - 1
         }
     }
 }
 
-const impl SignedReprType {
-    pub fn to_unsigned(&self) -> ReprType {
-        use ReprType::*;
-        use SignedReprType::*;
-        match *self {
-            I8 => U8,
-            I16 => U16,
-            I32 => U32,
-            I64 => U64,
-            I128 => U128,
-        }
-    }
-}
-
-const impl ReprTypeOrZST {
+const impl ReprTypeOrZst {
     fn from_variant_count(count: u128) -> Self {
         if let Some(count) = ReprType::from_variant_count(count) {
             Self::NonZero(count)
         } else {
-            Self::ZST
+            Self::Zst
         }
     }
 }
@@ -109,29 +94,16 @@ impl ToTokens for ReprType {
     }
 }
 
-impl ToTokens for SignedReprType {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        use SignedReprType::*;
-        tokens.extend(match *self {
-            I8 => quote!(i8),
-            I16 => quote!(i16),
-            I32 => quote!(i32),
-            I64 => quote!(i64),
-            I128 => quote!(i128),
-        })
-    }
-}
-
-const impl From<ReprType> for ReprTypeOrZST {
+const impl From<ReprType> for ReprTypeOrZst {
     fn from(value: ReprType) -> Self {
-        ReprTypeOrZST::NonZero(value)
+        ReprTypeOrZst::NonZero(value)
     }
 }
 
-const impl TryFrom<ReprTypeOrZST> for ReprType {
+const impl TryFrom<ReprTypeOrZst> for ReprType {
     type Error = ();
-    fn try_from(value: ReprTypeOrZST) -> Result<Self, Self::Error> {
-        if let ReprTypeOrZST::NonZero(value) = value {
+    fn try_from(value: ReprTypeOrZst) -> Result<Self, Self::Error> {
+        if let ReprTypeOrZst::NonZero(value) = value {
             Ok(value)
         } else {
             Err(())
@@ -139,7 +111,7 @@ const impl TryFrom<ReprTypeOrZST> for ReprType {
     }
 }
 
-impl ToTokens for ReprTypeOrZST {
+impl ToTokens for ReprTypeOrZst {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         if let Self::NonZero(value) = self {
             value.to_tokens(tokens);
@@ -153,23 +125,22 @@ impl ToTokens for ReprTypeOrZST {
 #[derive_const(PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct Divisor {
     count: u128,
-    repr_type: ReprTypeOrZST,
+    repr_type: ReprTypeOrZst,
 }
 
 const impl Divisor {
     pub fn new(value: u128) -> Self {
         Self {
             count: value,
-            repr_type: ReprTypeOrZST::from_variant_count(value),
+            repr_type: ReprTypeOrZst::from_variant_count(value),
         }
     }
-    #[allow(dead_code)]
     #[inline(always)]
     pub fn count(&self) -> u128 {
         self.count
     }
     #[inline(always)]
-    pub fn repr_type(&self) -> ReprTypeOrZST {
+    pub fn repr_type(&self) -> ReprTypeOrZst {
         self.repr_type
     }
     pub fn is_boundary(&self) -> bool {
@@ -179,6 +150,10 @@ const impl Divisor {
             || value == (1 << 16)
             || value == (1 << 32)
             || value == (1 << 64)
+    }
+
+    pub fn is_power_of_two(&self) -> bool {
+        self.count.is_power_of_two()
     }
 }
 
@@ -190,7 +165,6 @@ pub struct NonBoundaryDivisor {
 }
 
 const impl NonBoundaryDivisor {
-    #[allow(dead_code)]
     #[inline(always)]
     pub fn count(&self) -> u128 {
         self.count
@@ -217,14 +191,83 @@ const impl TryFrom<Divisor> for NonBoundaryDivisor {
 
 impl ToTokens for NonBoundaryDivisor {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let count = self.count;
-        use ReprType::*;
-        match self.repr_type {
-            U8 => tokens.extend(Literal::u8_suffixed(count as u8).into_token_stream()),
-            U16 => tokens.extend(Literal::u16_suffixed(count as u16).into_token_stream()),
-            U32 => tokens.extend(Literal::u32_suffixed(count as u32).into_token_stream()),
-            U64 => tokens.extend(Literal::u64_suffixed(count as u64).into_token_stream()),
-            U128 => tokens.extend(Literal::u128_suffixed(count).into_token_stream()),
+        tokens.extend(repr_literal(self.repr_type, self.count).into_token_stream());
+    }
+}
+
+/// Build a suffixed integer literal with the given representation type.
+pub fn repr_literal(repr: ReprType, value: u128) -> Literal {
+    use ReprType::*;
+    match repr {
+        U8 => Literal::u8_suffixed(value as u8),
+        U16 => Literal::u16_suffixed(value as u16),
+        U32 => Literal::u32_suffixed(value as u32),
+        U64 => Literal::u64_suffixed(value as u64),
+        U128 => Literal::u128_suffixed(value),
+    }
+}
+
+/// Precomputed constants for Montgomery multiplication modulo a 128-bit odd
+/// modulus, or modulo the odd part of a 128-bit even modulus.
+#[derive(Debug, Clone, Copy)]
+pub enum Montgomery {
+    /// The modulus itself is odd.
+    Odd { nprime: u128, r2: u128 },
+    /// The modulus is `2^shift * odd` with `odd > 1` odd.
+    Even {
+        odd: u128,
+        mask: u128,
+        nprime: u128,
+        r2: u128,
+        odd_inverse: u128,
+    },
+}
+
+/// Compute the constants needed by [`Montgomery`] for a modulus that does not
+/// fit in a `u64` and is not a power of two.
+pub fn montgomery_constants(modulus: u128) -> Montgomery {
+    if modulus & 1 == 1 {
+        let nprime = inverse_mod_2_128(modulus).wrapping_neg();
+        Montgomery::Odd {
+            nprime,
+            r2: pow2_mod(256, modulus),
+        }
+    } else {
+        let shift = modulus.trailing_zeros();
+        let odd = modulus >> shift;
+        let mask = (1u128 << shift) - 1;
+        let inverse = inverse_mod_2_128(odd);
+        Montgomery::Even {
+            odd,
+            mask,
+            nprime: inverse.wrapping_neg(),
+            r2: pow2_mod(256, odd),
+            odd_inverse: inverse & mask,
         }
     }
+}
+
+/// Multiplicative inverse of an odd number modulo `2^128`.
+fn inverse_mod_2_128(value: u128) -> u128 {
+    // Newton iteration doubles the number of correct bits: starting from the
+    // inverse modulo 2, seven steps reach the inverse modulo 2^128.
+    let mut inverse = 1u128;
+    for _ in 0..7 {
+        inverse = inverse.wrapping_mul(2u128.wrapping_sub(value.wrapping_mul(inverse)));
+    }
+    inverse
+}
+
+/// Compute `2^exponent mod modulus`.
+fn pow2_mod(exponent: u32, modulus: u128) -> u128 {
+    let mut result = 1u128 % modulus;
+    for _ in 0..exponent {
+        let distance = modulus - result;
+        result = if result >= distance {
+            result - distance
+        } else {
+            result + result
+        };
+    }
+    result
 }

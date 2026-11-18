@@ -9,6 +9,10 @@ pub fn ops_path() -> pm2::TokenStream {
     quote!(::cyclique::__private::core::ops)
 }
 
+pub fn pat_path() -> pm2::TokenStream {
+    quote!(::cyclique::__private::core::pat)
+}
+
 pub fn num_path() -> pm2::TokenStream {
     quote!(::cyclique::__private::core::num)
 }

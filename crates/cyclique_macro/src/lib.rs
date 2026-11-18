@@ -4,10 +4,10 @@
     const_clone,
     const_convert,
     const_try,
-    derive_const,
-    decl_macro
+    derive_const
 )]
 #![allow(internal_features)]
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
 
 mod expand;
 mod repr;
@@ -27,7 +27,7 @@ use syn::{
 use crate::{
     expand::{expand_new_unchecked_impl, expand_ops_impls},
     repr::*,
-    utils::{cmp_path, fmt_path, hash_path, mem_path},
+    utils::{cmp_path, fmt_path, hash_path, mem_path, pat_path},
 };
 
 #[derive(Clone)]
@@ -125,7 +125,7 @@ impl Parse for ModulusType {
             if !divisor.suffix().is_empty() {
                 return Err(content.error("suffix is not supported"));
             }
-            if !divisor.base10_parse::<u128>().is_ok() {
+            if divisor.base10_parse::<u128>().is_err() {
                 return Err(content.error("invalid divisor"));
             }
             if !content.is_empty() {
@@ -154,14 +154,10 @@ impl Parse for ModulusType {
 impl Parse for ModulusTypeDecls {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut decls = Vec::new();
-        while let Ok(decl) = input.parse() {
-            decls.push(decl);
+        while !input.is_empty() {
+            decls.push(input.parse()?);
         }
-        if input.is_empty() {
-            Ok(Self(decls))
-        } else {
-            Err(input.error("unexpected token"))
-        }
+        Ok(Self(decls))
     }
 }
 
@@ -188,13 +184,9 @@ impl ToTokens for ModulusType {
         match inner {
             ModulusTypeInner::Enum(ModulusEnum { variants, .. }) => {
                 let has_default = variants.iter().any(|v| {
-                    v.attrs.iter().any(|v| {
-                        v.meta
-                            .path()
-                            .get_ident()
-                            .map(|v| v.to_string() == "default")
-                            .unwrap_or_default()
-                    })
+                    v.attrs
+                        .iter()
+                        .any(|v| v.meta.path().get_ident().is_some_and(|v| v == "default"))
                 });
                 let first_default_attr = (!has_default).then(|| quote!(#[default]));
                 let repr_attr = ReprType::try_from(repr_type)
@@ -210,12 +202,13 @@ impl ToTokens for ModulusType {
                     }
                 });
 
-                if let Some(divisor) = NonBoundaryDivisor::try_from(divisor).ok() {
+                if let Ok(divisor) = NonBoundaryDivisor::try_from(divisor) {
                     expand_new_unchecked_impl(tokens, type_name, divisor);
-                } else if repr_type != ReprTypeOrZST::ZST {
+                } else if repr_type != ReprTypeOrZst::Zst {
                     tokens.extend(quote! {
                         const impl #type_name {
                             /// Creates a new value directly from its raw representation.
+                            #[inline(always)]
                             pub fn new(value: #repr_type) -> Self {
                                 unsafe { #mem::transmute(value) }
                             }
@@ -224,13 +217,17 @@ impl ToTokens for ModulusType {
                 }
             }
             ModulusTypeInner::Struct(_) => {
-                if let Some(divisor) = NonBoundaryDivisor::try_from(divisor).ok() {
+                if let Ok(divisor) = NonBoundaryDivisor::try_from(divisor) {
                     let cmp = cmp_path();
                     let hash = hash_path();
+                    let pat = pat_path();
 
                     tokens.extend(quote! {
                         #[derive(Copy)]
-                        #vis struct #type_name (pattern_type!(#repr_type is 0..#divisor));
+                        #[repr(transparent)]
+                        #vis struct #type_name (
+                            #pat::pattern_type!(#repr_type is 0..#divisor)
+                        );
                     });
                     expand_new_unchecked_impl(tokens, type_name, divisor);
                     tokens.extend(quote! {
@@ -296,7 +293,7 @@ impl ToTokens for ModulusType {
                             impl #type_name { #const_decls }
                         });
                     }
-                } else if repr_type == ReprTypeOrZST::ZST {
+                } else if repr_type == ReprTypeOrZst::Zst {
                     tokens.extend(quote! {
                         #common_attrs
                         #vis struct #type_name;
@@ -304,9 +301,11 @@ impl ToTokens for ModulusType {
                 } else {
                     tokens.extend(quote! {
                         #common_attrs
+                        #[repr(transparent)]
                         #vis struct #type_name(#repr_type);
 
                         const impl #type_name {
+                            #[inline(always)]
                             pub fn new(value: #repr_type) -> Self {
                                 Self(value)
                             }

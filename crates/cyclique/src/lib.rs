@@ -6,6 +6,20 @@
     const_default,
     derive_const
 )]
+#![cfg_attr(not(test), deny(clippy::unwrap_used))]
+
+//! Congruence classes of the natural numbers.
+//!
+//! The `new_modulus_type!` macro declares a type whose values are integers
+//! modulo a compile-time constant. The smallest unsigned integer type able to
+//! represent every residue is used as the internal representation, and the
+//! generated arithmetic is reduced modulo that constant.
+//!
+//! Modulus types support addition, subtraction, multiplication, and negation
+//! both with themselves and with every built-in signed and unsigned integer
+//! type. The right-hand integer is interpreted as an integer and reduced
+//! modulo the divisor before the operation, so `1 - 2` on a modulus type with
+//! divisor `10` is the class of `9` and `3 * -1` is the class of `7`.
 
 use std::{
     fmt,
@@ -19,12 +33,61 @@ pub use cyclique_macro::{Debug, new_modulus_type};
 #[doc(hidden)]
 pub mod __private {
     pub use core;
+
+    /// Multiply two 128-bit integers into a full 256-bit product.
+    ///
+    /// The returned pair is `(low, high)`.
+    #[inline(always)]
+    pub const fn wide_mul(a: u128, b: u128) -> (u128, u128) {
+        let a_low = a as u64 as u128;
+        let a_high = a >> 64;
+        let b_low = b as u64 as u128;
+        let b_high = b >> 64;
+
+        let low_low = a_low * b_low;
+        let low_high = a_low * b_high;
+        let high_low = a_high * b_low;
+        let high_high = a_high * b_high;
+
+        let middle = (low_low >> 64) + (low_high as u64 as u128) + (high_low as u64 as u128);
+        let low = ((middle as u64 as u128) << 64) | (low_low as u64 as u128);
+        let high = high_high + (low_high >> 64) + (high_low >> 64) + (middle >> 64);
+        (low, high)
+    }
+
+    /// Montgomery reduction of the 256-bit value `high * 2^128 + low` modulo
+    /// the odd modulus `n`.
+    ///
+    /// `nprime` must satisfy `nprime = -n^-1 (mod 2^128)`.
+    #[inline(always)]
+    pub const fn redc(low: u128, high: u128, n: u128, nprime: u128) -> u128 {
+        let factor = low.wrapping_mul(nprime);
+        let (factor_low, factor_high) = wide_mul(factor, n);
+        let (_, carry_low) = low.overflowing_add(factor_low);
+        let (sum, carry_high) = high.overflowing_add(factor_high);
+        let (sum, carry_extra) = sum.overflowing_add(carry_low as u128);
+        let carry = carry_high | carry_extra;
+        let reduced = sum.wrapping_sub(n);
+        if carry || sum >= n { reduced } else { sum }
+    }
+
+    /// Multiply `a` and `b` and Montgomery-reduce the product modulo the odd
+    /// modulus `n`.
+    #[inline(always)]
+    pub const fn redc_mul(a: u128, b: u128, n: u128, nprime: u128) -> u128 {
+        let (low, high) = wide_mul(a, b);
+        redc(low, high, n, nprime)
+    }
 }
 
 pub trait ModulusType {
-    /// The internal representation type
+    /// The internal representation type.
     type Repr;
-    /// The divisor of the modulus type. None means 1 plus the maximum of representation type.
+    /// The divisor of the modulus type.
+    ///
+    /// Zero encodes `2^BITS`, where `BITS` is the width of [`Self::Repr`]. In
+    /// that case every value of the representation is a valid residue and the
+    /// arithmetic wraps around.
     const DIVISOR: Self::Repr;
 }
 
