@@ -1,5 +1,6 @@
 [package]
 name = "fantazia_edo12_macro"
+description = "Compile-time literal constructors for the `fantazia` 12-EDO types."
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -9,7 +10,8 @@ license.workspace = true
 proc-macro = true
 
 [dependencies]
-fantazia_edo12 = { workspace = true, features = ["macro"] }
+fantazia_edo12.workspace = true
 syn.workspace = true
 quote.workspace = true
 proc-macro2.workspace = true
+proc-macro-crate.workspace = true

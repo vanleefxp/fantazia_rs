@@ -8,7 +8,9 @@
 //! - [`OPitchTone`]: the tone component of a named pitch (`OPitch`). Accidentals can move it
 //!   outside `0..12`, so it is not restricted to the twelve pitch classes.
 //!
-//! [`tone`] and [`otone`] are shorthand constructors for [`Tone`] and [`OTone`].
+//! The `tone!` and `otone!` literal macros (provided by `fantazia_edo12_macro` and re-exported by
+//! the `fantazia` facade) construct tones from note literals such as `tone!(C_1)` and
+//! `otone!(F+)`.
 
 use std::{
     fmt::{Debug, Display},
@@ -30,40 +32,6 @@ use fantazia_core::{
 use fantazia_internal_macro::{gen_otone_consts, gen_tone_consts};
 
 use crate::acci::Acci;
-
-/// Helper function for creating a [`Tone`].
-/// See [`Tone`] for details.
-///
-/// # Examples
-///
-/// ```
-/// use fantazia_edo12::tone::{tone, Tone};
-///
-/// assert_eq!(Tone::F_SHARP_0, tone(6));
-/// assert_eq!(Tone::E_1, tone(16));
-/// assert_eq!(Tone::B_FLAT_M1, tone(-2));
-/// ```
-#[inline(always)]
-pub const fn tone(value: impl [const] Into<Tone>) -> Tone {
-    value.into()
-}
-
-/// Helper function for creating an [`OTone`] that never panics.
-/// It first converts the input into a [`Tone`] and then puts it in octave.
-///
-/// # Examples
-///
-/// ```
-/// use fantazia_edo12::tone::{otone, OTone};
-///
-/// assert_eq!(OTone::F_SHARP, otone(6));
-/// assert_eq!(OTone::E, otone(16));
-/// assert_eq!(OTone::B_FLAT, otone(-2));
-/// ```
-#[inline(always)]
-pub const fn otone(value: impl [const] Into<Tone>) -> OTone {
-    tone(value).generalize()
-}
 
 // MARK: Octave Chromatic Tone
 
@@ -701,13 +669,13 @@ mod tests {
 
     #[test]
     fn test_chromatic_tone() {
-        let middle_c = tone(0);
-        let high_a = tone(17);
+        let middle_c = Tone::new(0);
+        let high_a = Tone::new(17);
 
         assert_eq!(middle_c, Tone::C_0);
         assert_eq!(high_a, Tone::F_1);
         assert_eq!(middle_c.generalize(), OTone::C);
         assert_eq!(high_a.generalize(), OTone::F);
-        assert_eq!(otone(17), OTone::F);
+        assert_eq!(OTone::new(5), Some(OTone::F));
     }
 }

@@ -6,6 +6,10 @@
 //! This module provides:
 //! - the [`OPitch`] type for octave-unspecific pitch.
 //! - the [`Pitch`] type for octave-specific pitch.
+//!
+//! The `opitch!` and `pitch!` literal macros (provided by `fantazia_edo12_macro` and re-exported by
+//! the `fantazia` facade) construct pitches from literals such as `opitch!(F+)` and
+//! `pitch!(G[+3]_2)`.
 
 use std::{
     fmt::{self, Debug, Display, Formatter},

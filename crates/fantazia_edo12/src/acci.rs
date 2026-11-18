@@ -8,6 +8,8 @@
 //! [`Acci`] renders as a sequence of `+` / `-` / `=` characters and can be parsed back from the
 //! same notation, including the bracketed form used for wide accidentals such as `[+4]`.
 //!
+//! The `acci!` literal macro (provided by `fantazia_edo12_macro` and re-exported by the `fantazia`
+//! facade) constructs an accidental from a literal such as `acci!(++)`.
 
 //! Musical **accidental** representation.
 
@@ -27,12 +29,6 @@ use quote::{ToTokens, quote};
 use thiserror::Error;
 
 use crate::tone::Tone;
-
-/// Helper function for creating an [`Acci`] object
-#[inline(always)]
-pub const fn acci(value: impl [const] Into<Acci>) -> Acci {
-    value.into()
-}
 
 /// A musical **accidental** denoted by the number of semitones it alters the pitch.
 #[derive(Debug, Copy, Hash)]
@@ -268,7 +264,7 @@ mod tests {
         assert_eq!(Acci::TRIPLE_FLAT.as_i8(), -3);
 
         assert_eq!(Acci::new(2), Acci::DOUBLE_SHARP);
-        assert_eq!(acci(2), Acci::DOUBLE_SHARP);
+        assert_eq!(Acci::new(2), Acci::DOUBLE_SHARP);
         assert_eq!(Acci::default(), Acci::NATURAL);
         // `Acci` dereferences to its `i8` representation.
         assert_eq!(*Acci::FLAT, -1);
@@ -277,15 +273,15 @@ mod tests {
     #[test]
     fn test_display_and_parse() {
         let expected = [
-            (acci(4), "[+4]"),
-            (acci(3), "+++"),
-            (acci(2), "++"),
-            (acci(1), "+"),
-            (acci(0), "="),
-            (acci(-1), "-"),
-            (acci(-2), "--"),
-            (acci(-3), "---"),
-            (acci(-4), "[-4]"),
+            (Acci::new(4), "[+4]"),
+            (Acci::new(3), "+++"),
+            (Acci::new(2), "++"),
+            (Acci::new(1), "+"),
+            (Acci::new(0), "="),
+            (Acci::new(-1), "-"),
+            (Acci::new(-2), "--"),
+            (Acci::new(-3), "---"),
+            (Acci::new(-4), "[-4]"),
         ];
         for (input, expected) in expected {
             assert_eq!(input.to_string(), expected);
@@ -294,12 +290,12 @@ mod tests {
 
         // Every accidental round-trips through its display representation.
         for value in -10..=10 {
-            let acci = acci(value);
+            let acci = Acci::new(value);
             let src = acci.to_string();
             assert_eq!(src.parse::<Acci>().unwrap(), acci, "parse `{src}`");
         }
-        assert_eq!(acci(4).to_string(), "[+4]");
-        assert_eq!(acci(-6).to_string(), "[-6]");
+        assert_eq!(Acci::new(4).to_string(), "[+4]");
+        assert_eq!(Acci::new(-6).to_string(), "[-6]");
     }
 
     #[test]
@@ -308,9 +304,9 @@ mod tests {
         assert_eq!("=".parse::<Acci>().unwrap(), Acci::NATURAL);
         assert_eq!("+-".parse::<Acci>().unwrap(), Acci::NATURAL);
         assert_eq!("=+=".parse::<Acci>().unwrap(), Acci::SHARP);
-        assert_eq!("[4]".parse::<Acci>().unwrap(), acci(4));
-        assert_eq!("[+4]".parse::<Acci>().unwrap(), acci(4));
-        assert_eq!("[-4]".parse::<Acci>().unwrap(), acci(-4));
+        assert_eq!("[4]".parse::<Acci>().unwrap(), Acci::new(4));
+        assert_eq!("[+4]".parse::<Acci>().unwrap(), Acci::new(4));
+        assert_eq!("[-4]".parse::<Acci>().unwrap(), Acci::new(-4));
 
         assert!(matches!(
             "C".parse::<Acci>(),
@@ -338,11 +334,11 @@ mod tests {
     fn test_arithmetic() {
         assert_eq!(Acci::SHARP + Acci::FLAT, Acci::NATURAL);
         assert_eq!(Acci::SHARP - Acci::SHARP, Acci::NATURAL);
-        assert_eq!(Acci::DOUBLE_SHARP * 2, acci(4));
-        assert_eq!(2 * Acci::DOUBLE_SHARP, acci(4));
+        assert_eq!(Acci::DOUBLE_SHARP * 2, Acci::new(4));
+        assert_eq!(2 * Acci::DOUBLE_SHARP, Acci::new(4));
         assert_eq!(-Acci::SHARP, Acci::FLAT);
         assert_eq!(-Acci::NATURAL, Acci::NATURAL);
-        assert_eq!(acci(-3).abs(), Acci::TRIPLE_SHARP);
+        assert_eq!(Acci::new(-3).abs(), Acci::TRIPLE_SHARP);
 
         assert_eq!(Acci::FLAT.sign(), Ordering::Less);
         assert_eq!(Acci::NATURAL.sign(), Ordering::Equal);

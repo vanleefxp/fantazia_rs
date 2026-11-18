@@ -9,6 +9,10 @@
 //! respectively, but they keep track of the _interval quality_ and number of steps instead of _tone_ and
 //! step. So it's suggested to use [`OPitch`] and [`Pitch`] for pitch / interval arithmetics instead.
 //! Only use the corresponding interval types when you need to work with interval representation.
+//!
+//! The `ointerval!` and `interval!` literal macros (provided by `fantazia_edo12_macro` and
+//! re-exported by the `fantazia` facade) construct intervals from literals such as
+//! `ointerval!(M3)` and `interval!(M10)`.
 
 use derive_more::{From, Hash, Into, Neg};
 use fantazia_core::arith::Abs;

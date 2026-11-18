@@ -21,6 +21,14 @@
 //! octave-unspecific types, while [`fantazia_core::pitch::GeneralPitch`] puts an octave-unspecific
 //! value back into a chosen octave.
 //!
+//! # Literal macros
+//!
+//! The companion crate `fantazia_edo12_macro` builds these values from compile-time literals, in
+//! both a bare form and a string form: `opitch!(F+)`, `pitch!(G[+3]_2)`, `ostep!(C)`,
+//! `step!(C_1)`, `otone!(F+)`, `tone!(C_1)`, `acci!(++)`, `ointerval!(M3)` and `interval!(M10)`.
+//! Depend on `fantazia_edo12_macro` directly to use them without the facade; the `fantazia` crate
+//! re-exports them as `fantazia::edo12::opitch!` and friends.
+//!
 //! # Circle of fifths
 //!
 //! Steps and pitches have a position on the **circle (chain) of fifths** as well as in the

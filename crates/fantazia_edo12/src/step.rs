@@ -10,6 +10,9 @@
 //!
 //! [`OStep`] also tracks the position of each letter on the circle of fifths, which is the basis of
 //! key signatures and enharmonic respelling.
+//!
+//! The `step!` and `ostep!` literal macros (provided by `fantazia_edo12_macro` and re-exported by
+//! the `fantazia` facade) construct steps from literals such as `step!(C_1)` and `ostep!(C)`.
 
 use std::{
     fmt::{Debug, Display},
@@ -39,18 +42,6 @@ use crate::tone::{OPitchTone, Tone};
 
 const DIATONIC_TONES: [i8; 7] = [0, 2, 4, 5, 7, 9, 11];
 pub(crate) const STEP_NAMES: phf::map::Map<&UncasedStr, OStep> = gen_step_name_to_step_table!();
-
-/// Helper function for creating a [`Step`].
-#[inline(always)]
-pub const fn step(value: impl [const] Into<Step>) -> Step {
-    value.into()
-}
-
-/// Helper function for creating an [`OStep`].
-#[inline(always)]
-pub const fn ostep(value: impl [const] Into<Step>) -> OStep {
-    step(value).generalize()
-}
 
 // MARK: OStep
 
@@ -150,7 +141,7 @@ impl OStep {
     /// specification of a [`Step`] shifts the result by a whole octave, i.e. by twelve semitones.
     ///
     /// ```
-    /// use fantazia_edo12::{step::OStep, tone::tone};
+    /// use fantazia_edo12::step::OStep;
     /// const STEPS: [OStep; 7] = {
     ///     use OStep::*;
     ///     [C, D, E, F, G, A, B]
